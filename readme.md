@@ -6,9 +6,9 @@
 ---
 
 ## 👥 Integrantes del Equipo
-* **[Nombre Estudiante 1]** - Lucas Concha Perez
-* **[Nombre Estudiante 2]** - Natalia Hormazabal Nuñez
-* **[Nombre Estudiante 3]** - Martin Villarroel Morales
+* **Lucas Concha**
+* **Natalia Hormazabal**
+* **Martin Villarroel**
 
 ---
 
@@ -52,50 +52,63 @@ Para evaluar la efectividad de la solución tanto a nivel técnico como de impac
 
 ## 💾 4. Descripción de las Fuentes de Datos
 
-### Origen y Dimensión
-* **Dataset:** Spotify Tracks Dataset
-* **Volumen:** 114,000 registros y 21 columnas.
+### Origen y Dimensión Inicial
+* **Dataset:** Spotify Tracks Dataset (`Spotify_Tracks_Dataset.csv`)
+* **Dimensiones Iniciales:** 114,000 filas y 21 columnas.
 
 ### Estructura y Tipos de Variables
-* **Variable Objetivo (Target):**
-  * `popularity`: Numérica entera (rango de 0 a 100).
-* **Numéricas Continuas (Audio Features):**
-  * `danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`, `duration_ms`.
-* **Categorical y Discretas:**
-  * `track_genre`, `key`, `mode`, `time_signature`, `explicit` (Booleana).
-* **Identificadores / Texto (No predictivas directas):**
-  * `track_id`, `artists`, `album_name`, `track_name`, `Unnamed: 0` (índice residual).
-
-### Diagnóstico Inicial de Calidad
-* **Valores Nulos:** Presencia mínima de nulos (1 registro con faltantes en `artists`, `album_name` y `track_name`).
-* **Duplicados:** Se debe auditar la presencia de duplicados en la columna `track_id` (canciones que aparecen en múltiples álbumes o géneros).
+* **Variable Objetivo (Target):** `popularity` (entero, 0 a 100).
+* **Variables Continuas de Audio (9):** `danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`.
+* **Variables Discretas y Categóricas:** `track_genre`, `key`, `mode`, `time_signature`, `explicit` (Booleano).
+* **Identificadores y Texto:** `track_id`, `artists`, `album_name`, `track_name`, `Unnamed: 0` (índice redundante de exportación).
 
 ---
 
 ## 🔍 5. Preparación y Análisis Exploratorio de Datos (EDA)
 
-### Estrategia de Análisis Exploratorio
-1. **Estadística Descriptiva:** Inspección de medidas de tendencia central y dispersión para `popularity` y métricas de audio.
-2. **Distribución por Género (`track_genre`):** Evaluación de la representatividad y balance de registros por cada género musical.
-3. **Detección de Outliers y Anomalías:** Identificación de registros atípicos (ej. canciones con `duration_ms` excesivamente altos/bajos o registros con `tempo = 0`).
-4. **Matriz de Correlación:** Análisis de relaciones lineales entre variables continuas y `popularity` mediante mapas de calor.
+### 🧹 Inciso: Pipeline de Limpieza y Preprocesamiento de Datos
 
-### Visualizaciones Clave a Generar
-* Histogramas de distribución para `popularity` y *audio features*.
-* Boxplots comparativos de popularidad según `track_genre`.
-* Heatmap de correlaciones (Pearson / Spearman).
+A partir de la inspección ejecutada en el notebook principal (`Spotify_Notebook.ipynb`), se aplicaron las siguientes etapas secuenciales de limpieza y transformación:
 
-### Transformaciones y Preprocesamiento
-* **Limpieza:** Imputación o eliminación del registro con valores nulos y remoción de registros duplicados en `track_id`.
-* **Depuración de Columnas:** Eliminación de variables no predictivas o identificadores puros (`track_id`, `Unnamed: 0`).
-* **Transformación Categórica:** Aplicación de técnicas de *Encoding* (ej. *One-Hot Encoding* o *Target Encoding*) para `track_genre` y variables de tono/modo.
-* **Escalamiento:** Normalización/Estandarización (`StandardScaler` o `RobustScaler`) de variables numéricas continuas para homogenizar rangos.
+#### A. Eliminación de Columnas Redundantes
+* **Operación:** Se removió la columna índice residual `Unnamed: 0`.
+* **Resultado:** El dataframe pasa de 21 a 20 columnas (`shape: (114000, 20)`).
+
+#### B. Tratamiento de Valores Nulos
+* **Diagnóstico:** Se identificó exactamente 1 registro faltante de forma simultánea en las columnas `artists`, `album_name` y `track_name`.
+* **Acción:** Se eliminó la fila mediante `dropna(subset=["artists", "album_name", "track_name"])`.
+* **Resultado:** El dataset se ajusta a **113,999 registros**.
+
+#### C. Auditoría y Eliminación de Duplicados
+1. **Duplicados Exactos:**
+   * **Diagnóstico:** Se detectaron 450 filas totalmente idénticas.
+   * **Acción:** Eliminación mediante `drop_duplicates()`.
+   * **Resultado:** Registros reducidos a **113,549 filas**.
+2. **Duplicados por Identificador (`track_id`):**
+   * **Diagnóstico:** Se identificaron **40,108 registros** (35.3% del total) cuyo `track_id` se repite catalogado en distintos géneros (`track_genre`). 
+   * **Decisión Técnica:** Mantener los registros para la fase de análisis exploratorio por género, registrando esta particularidad para la agregación previa al modelamiento.
+
+#### D. Inspección de Outliers y Valores Atípicos
+* **Tempo en Cero (`tempo = 0`):** Se identificaron **157 canciones** con ritmo nulo, asociadas a audios de ruido blanco, meditación o archivos corruptos.
+* **Duración Extrema (`duration_ms`):** Mediante el rango intercuartílico ($Q3 + 3 \times IQR$), se estableció un umbral atípico extremo en **8.7 minutos** ($> 522,000\text{ ms}$). Un total de **1,217 canciones (1.07%)** superan este umbral (temas progresivos, audiolibros o mezclas extensas).
+
+#### E. Transformación y Encoding de Variables Categóricas
+1. **Variable Booleana `explicit`:** Convertida a entero (`0` para False, `1` para True).
+2. **Género Musical (`track_genre`):** Se generaron **113 variables dummy** (*One-Hot Encoding* con `drop_first=True`) mediante `pd.get_dummies()`.
+3. **Variables Musicales Discretas:** `key`, `mode` y `time_signature` se conservaron como enteros.
+
+#### F. Escalamiento de Características de Audio
+* **Operación:** Se aplicó **`MinMaxScaler`** de Scikit-Learn sobre las 9 variables continuas de audio (`danceability`, `energy`, `loudness`, `speechiness`, `acousticness`, `instrumentalness`, `liveness`, `valence`, `tempo`).
+* **Resultado:** Todas las métricas de audio quedaron acotadas estrictamente en el rango continuo $[0.0, 1.0]$.
+
+#### G. Exportación de Datos Procesados
+* El conjunto de datos limpio y transformado fue exportado a `../data_procesado/spotify_tracks_clean.csv`.
 
 ---
 
 ## 🔄 6. Metodología de Trabajo (CRISP-DM)
 
-El desarrollo del proyecto se estructura bajo las etapas del marco **CRISP-DM**:
+El proyecto se desarrolla bajo la estructura del estándar **CRISP-DM**:
 
 ```text
 [Comprensión del Negocio] ➔ [Comprensión de los Datos] ➔ [Preparación de Datos] ➔ (Modelado)* ➔ (Evaluación)* ➔ (Despliegue)*
