@@ -17,7 +17,7 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 **Hallazgos principales del EDA**
 
 1. Los atributos de audio, por sí solos, se relacionan muy débilmente con `popularity` (|r| ≤ 0,10, con Pearson y con Spearman).
-2. El género musical es la señal más fuerte: `track_genre` explica ~25% de la varianza de `popularity` (η² = 0,25).
+2. El género musical es la señal más fuerte: `track_genre` explica ~25% de la varianza de `popularity`.
 3. El ~14% de las canciones tiene `popularity = 0` (concentradas en ciertos géneros) y solo el 4,3% supera 70 puntos ("hits").
 4. El 35,3% de las filas corresponde a canciones repetidas en distintos géneros, lo que exige particionar por `track_id` al modelar.
 
