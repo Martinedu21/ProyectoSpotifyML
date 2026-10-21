@@ -61,11 +61,23 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 
 ## 3. Definición de KPIs
 
-| KPI | Tipo | Unidad de Medida | Descripción / Meta de Negocio | Estado |
-| :--- | :--- | :--- | :--- | :--- |
-| Error Global de Predicción (RMSE / MAE) | Técnico | Puntos de popularidad (0-100) | Minimizar la desviación promedio de las predicciones respecto al valor real de `popularity`. | Se mide en la etapa de modelado. |
-| Tasa de Detección de Hits (% Hit Recall) | Negocio / Técnico | Porcentaje (%) | Porcentaje de canciones con popularidad alta (`popularity > 70`) correctamente identificadas para campañas de difusión. Solo el 4,3% del dataset son hits, por lo que es una clase escasa. | Se mide en la etapa de modelado. |
-| Correlación Atributos vs. Popularidad | Exploratorio | Coeficiente de correlación (r) | Cuantificar el grado de asociación entre atributos clave de audio (`danceability`, `energy`, `valence`, `tempo`) y `popularity` con el fin de orientar la selección de canciones para playlists y campañas de difusión. | Medido en el EDA: \|r\| ≤ 0,10. |
+### KPIs del modelo
+
+| KPI | Tipo | Unidad de Medida | Descripción | Meta | Estado |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Error Global de Predicción (MAE) | Técnico | Puntos de popularidad (0-100) | Desviación promedio de las predicciones respecto al valor real de `popularity`. | Mejorar el MAE en ≥ 20% respecto de predecir la popularidad promedio del género (modelo base ingenuo). | Se mide en la etapa de modelado. |
+| Tasa de Detección de Hits (Hit Recall) | Negocio / Técnico | Porcentaje (%) | Porcentaje de canciones con popularidad alta (`popularity > 70`) correctamente identificadas para campañas de difusión. Solo el 4,3% del dataset son hits, por lo que es una clase escasa. | ≥ 60% de los hits reales identificados. | Se mide en la etapa de modelado. |
+| Equidad del error entre géneros | Técnico | Diferencia de MAE (puntos) | Diferencia entre el MAE del género mejor predicho y el peor predicho, para evitar que el modelo favorezca sistemáticamente a ciertos géneros. | Diferencia ≤ 10 puntos entre el mejor y el peor género. | Se mide en la etapa de evaluación. |
+| Correlación Atributos vs. Popularidad | Exploratorio | Coeficiente de correlación (r) | Grado de asociación entre atributos clave de audio (`danceability`, `energy`, `valence`, `tempo`) y `popularity`, para orientar la selección de canciones para playlists y campañas de difusión. | — (indicador diagnóstico, no tiene meta de mejora). | Medido en el EDA: \|r\| ≤ 0,10. |
+
+### KPIs de gestión del proyecto
+
+| KPI | Unidad de Medida | Descripción | Meta |
+| :--- | :--- | :--- | :--- |
+| Cumplimiento de plazos | Porcentaje (%) | Fases de CRISP-DM terminadas en la fecha planificada por el equipo. | 100% de las fases a tiempo para cada entrega (EP1, EP2, EP3). |
+| Avance del proyecto | Fases completadas / fases totales | Seguimiento del progreso según las 6 fases de CRISP-DM (sección 7). | 3 de 6 fases completadas a la fecha de esta entrega. |
+| Calidad de los datos | Porcentaje (%) | Registros válidos (sin nulos ni duplicados exactos) después de la limpieza, sobre el total original. | ≥ 99,5% de registros válidos (actual: 99,6%, 113.549 de 113.999 tras remover duplicados). |
+| Reproducibilidad | Sí / No | El notebook corre de principio a fin sin errores, en un equipo distinto al que lo creó, usando `requirements.txt`. | El notebook se ejecuta completo sin modificaciones en cualquier equipo del grupo. |
 
 ## 4. Descripción de las Fuentes de Datos
 
@@ -98,7 +110,7 @@ Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ip
 
 * **Tempo en cero:** 157 canciones con `tempo = 0`, asociadas a audio de ruido blanco, meditación o archivos corruptos.
 * **Duración extrema:** mediante el rango intercuartílico (Q3 + 3×IQR) se estableció un umbral de 8,7 minutos (> 522.000 ms). 1.217 filas (1,07%) lo superan, correspondientes a 1.099 canciones distintas (el archivo de anomalías se deduplica por `track_id`). La duración máxima es de 87,3 minutos.
-* **Compás (`time_signature`):** 163 filas con valor 0 (probablemente dato faltante) y 967 con valor 1; se dejan como observación.
+* **Compás (`time_signature`):** 163 filas con valor 0 y 967 con valor 1. Según la documentación de la API de Spotify, `time_signature` va de 3 a 7, por lo que estos 1.130 valores están fuera de rango (probable dato faltante o de mala calidad). Se dejan como observación en esta etapa; antes de entrenar el modelo (EP2) se decidirá si se eliminan o se tratan como valor faltante.
 * **Registro:** todas se documentan en `data_procesado/spotify_tracks_anomalias.csv` (1.256 filas = 157 de tempo cero + 1.099 de duración extrema, con la columna `anomalia`).
 
 > **Decisión:** las anomalías se **documentan pero se conservan** en el dataset limpio. Representan ~1,1% de los datos, las duraciones largas pueden ser legítimas (álbumes en vivo, sets) y eliminarlas sin evidencia sería arbitrario. En el modelado se comparará el error con y sin ellas, y solo se excluirán si mejoran el desempeño.
@@ -123,7 +135,7 @@ Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ip
 
 ![Matriz de correlación](images/matriz_correlacion.png)
 
-* **Con `popularity`:** ninguna variable de audio supera |r| = 0,09; la mayor es `instrumentalness` (−0,09). Ampliando a `duration_ms`, `explicit`, `key`, `mode` y `time_signature`, y usando Spearman, el máximo sigue siendo bajo (Pearson 0,095; Spearman 0,078): **los atributos de audio no bastan para explicar la popularidad**.
+* **Con `popularity`:** ninguna variable de audio supera |r| = 0,095; la mayor es `instrumentalness` (−0,095). Ampliando a `duration_ms`, `explicit`, `key`, `mode` y `time_signature`, y usando Spearman, el máximo sigue siendo bajo (Pearson 0,095; Spearman 0,078): **los atributos de audio no bastan para explicar la popularidad**.
 * Al excluir los `popularity = 0`, la relación de `instrumentalness` sube a −0,18: parte de la señal está diluida por los ceros.
 * **Entre los atributos:** `energy`–`loudness` (0,76), `energy`–`acousticness` (−0,73) y `danceability`–`valence` (0,48).
 
@@ -165,6 +177,13 @@ Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ip
 | **Duplicidad por `track_id`** | 16.299 canciones aparecen en varios géneros (35,3% de las filas): riesgo de sobreponderarlas y de fuga de información entre entrenamiento y prueba. | Particionar agrupando por `track_id` y evaluar con canciones únicas. |
 | **Uso responsable de las predicciones** | Usar el modelo para decidir a qué artistas apoyar puede favorecer siempre a lo ya popular y perjudicar a artistas emergentes o a géneros con menor exposición. | Usar las predicciones como apoyo a la decisión, no como criterio único. |
 | **Privacidad** | Los datos son públicos y provienen de la API de Spotify (metadatos e indicadores acústicos). No incluyen información personal de usuarios ni datos de comportamiento individual, pero sí nombres reales de artistas. | No publicar predicciones individuales asociadas a un artista específico y respetar los términos de uso de la API de Spotify. |
+
+### Marco normativo de referencia
+
+* **Ley N° 19.628** sobre Protección de la Vida Privada (Chile): regula el tratamiento de datos de carácter personal, incluyendo nombres de personas reales como los artistas del dataset.
+* **Ley N° 21.719** de Protección de Datos Personales (Chile): establece los principios de finalidad, proporcionalidad y seguridad, que se aplican al usar los nombres de artistas únicamente para fines del análisis exploratorio y no para decisiones automatizadas individuales.
+* **GDPR (Reglamento General de Protección de Datos, UE)**, como referencia internacional: principios de minimización de datos y derecho a no ser objeto de decisiones automatizadas sin explicación, aplicables si el modelo se usara para decisiones sobre artistas específicos.
+* **Términos de uso de la API de Spotify**, que restringen el uso comercial de los datos obtenidos y deben respetarse en cualquier aplicación del modelo más allá de este trabajo académico.
 
 ## 7. Metodología de Trabajo (CRISP-DM)
 
