@@ -32,7 +32,7 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 
 | Herramienta | Uso en el proyecto | Por qué |
 | :--- | :--- | :--- |
-| **Jupyter Notebook** | Desarrollo del EDA y la preparación de datos (`notebooks/Spotify_Notebook.ipynb`). | Reúne código, resultados y explicaciones en un solo archivo ejecutable, lo que permite reproducir cada etapa del informe. |
+| **Jupyter Notebook** | Desarrollo del EDA y la preparación de datos (`notebooks/01_EDA_Preparacion.ipynb`) y del modelado supervisado y no supervisado (`notebooks/02_Modelado.ipynb`). | Reúne código, resultados y explicaciones en un solo archivo ejecutable, lo que permite reproducir cada etapa del informe. |
 | **Git / GitHub** | Control de versiones y repositorio compartido del equipo. | Coordina el trabajo de los tres integrantes, mantiene trazabilidad de los cambios y comparte código, datos procesados y gráficos. |
 | **Python** (pandas, numpy, matplotlib, seaborn, scikit-learn, joblib) | Manipulación, visualización, escalado, modelado supervisado, K-Means y guardado de modelos. | Ecosistema estándar de la asignatura para ciencia de datos. |
 
@@ -66,9 +66,9 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 
 4. Preparar y transformar el conjunto de datos mediante codificación, escalado y selección de características para dejarlo listo para el modelamiento.
 
-5. Comparar dos modelos supervisados (Regresión Lineal y Random Forest) contra un baseline justo y evaluar los KPIs del proyecto, incluyendo la detección de hits.
+5. Comparar dos modelos supervisados (Regresión Lineal y Random Forest) contra un baseline justo, justificar sus hiperparámetros con validación cruzada y evaluar los KPIs del proyecto, incluyendo la detección de hits.
 
-6. Segmentar las canciones en perfiles sonoros con una técnica no supervisada (K-Means) y traducirlos en recomendaciones para playlists y campañas.
+6. Segmentar las canciones en perfiles sonoros con una técnica no supervisada (K-Means, comparada con clustering jerárquico y Gaussian Mixture) y traducirlos en recomendaciones para playlists y campañas.
 
 ## 3. Definición de KPIs
 
@@ -101,7 +101,7 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 
 ## 5. Preparación y Análisis Exploratorio de Datos (EDA)
 
-Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ipynb`.
+Todo lo descrito en esta sección se reproduce en `notebooks/01_EDA_Preparacion.ipynb`.
 
 ### A. Limpieza de datos
 
@@ -161,7 +161,7 @@ Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ip
 ### E. Transformación y Encoding de Variables
 
 1. `explicit` se convierte a entero (0 = False, 1 = True).
-2. `track_genre` se codifica mediante One-Hot Encoding con `pd.get_dummies(drop_first=True)`, generando 113 variables dummy; la columna original se elimina del dataframe resultante.
+2. `track_genre` se codifica mediante One-Hot Encoding con `pd.get_dummies(drop_first=True)`, generando 113 variables dummy. La columna `track_genre` se reemplaza por esas dummies, pero se conserva una copia de texto (`track_genre_label`) para reportes por género y para el *target encoding* del modelado; esa copia no es una variable predictora.
 3. `key`, `mode` y `time_signature` se conservan como enteros.
 4. **Escalamiento:** se aplicó `MinMaxScaler` (Scikit-Learn) sobre las 9 variables continuas de audio, quedando en el rango [0,0, 1,0]. `duration_ms` no se escala en esta etapa (no es un atributo de audio y su tratamiento dependerá del modelo).
 5. **Nota metodológica:** el escalador se ajustó aquí con todo el dataset por ser la etapa de preparación. **Se corrigió en el modelado:** se reajusta solo con el conjunto de entrenamiento para evitar fuga de información.
@@ -175,13 +175,13 @@ Todo lo descrito en esta sección se reproduce en `notebooks/Spotify_Notebook.ip
 
 ### G. Exportación de Datos Procesados
 
-* Dataset limpio y transformado: `data_procesado/spotify_tracks_clean.csv` (113.549 filas, 132 columnas, sin nulos ni duplicados exactos; el notebook incluye validaciones automáticas).
+* Dataset limpio y transformado: `data_procesado/spotify_tracks_clean.csv` (113.549 filas y 133 columnas: 19 atributos y metadatos, 113 dummies de género y `track_genre_label`; sin nulos ni duplicados exactos; el notebook incluye validaciones automáticas).
 * Registros atípicos identificados: `data_procesado/spotify_tracks_anomalias.csv` (1.256 filas, con columna `anomalia` que indica si corresponde a tempo cero o duración extrema).
 * Perfiles sonoros (EP2): `data_procesado/spotify_tracks_clusters.csv` (80.286 canciones distintas con su grupo de K-Means).
 
 ## 6. Modelado: preparación para el entrenamiento
 
-Todo se reproduce en `notebooks/Spotify_Notebook.ipynb` (sección «Modelado (EP2)»).
+Todo se reproduce en `notebooks/02_Modelado.ipynb` (partición, modelos supervisados, evaluación de KPIs y K-Means).
 
 | Paso | Qué se hizo | Justificación |
 | :--- | :--- | :--- |
@@ -204,7 +204,7 @@ El MAE se minimiza con la mediana, así que la comparación justa para el KPI de
 ### 6.2 Modelos supervisados
 
 * **Regresión Lineal:** modelo base interpretable.
-* **Random Forest** (300 árboles, `max_depth=15`, `min_samples_leaf=5`): captura interacciones género × audio que la regresión lineal no ve. Se eligió por el EDA: relaciones débiles variable a variable (|r| ≤ 0,10) pero con género explicando ~25% de la varianza.
+* **Random Forest** (300 árboles, `max_depth=15`, `min_samples_leaf=5`): captura interacciones género × audio que la regresión lineal no ve. Se eligió por el EDA: relaciones débiles variable a variable (|r| ≤ 0,10) pero con género explicando ~25% de la varianza. La configuración se respalda con validación cruzada y una búsqueda de hiperparámetros en la sección 6.3.
 * **Primer intento, con 127 predictoras (113 dummies de género):** empeora al baseline (Regresión Lineal 14,05 y Random Forest 16,71 de MAE).
 * **Corrección: target encoding del género.** Las 113 dummies se reemplazan por una sola variable (promedio de popularidad del género calculado solo con train), quedando **15 predictoras**. El Random Forest pasa de 16,71 a 13,64 de MAE. **Ojo:** el primer Random Forest usaba 100 árboles con `max_features="sqrt"` y el final usa 300 árboles con todas las variables, así que esa mejora no se debe solo al encoding; no se reentrenó el primer modelo con la configuración final.
 * **Limitación del target encoding:** se calcula con todo el train y sin validación cruzada, así que cada canción aporta a su propio promedio de género. Con ~900 canciones por género el aporte es mínimo. Se comprobó con una versión *out-of-fold* (`GroupKFold`): MAE 13,78 vs 13,62, es decir, el encoding usado es levemente optimista, sin cambiar la conclusión.
@@ -220,6 +220,23 @@ El MAE se minimiza con la mediana, así que la comparación justa para el KPI de
 * **Importancia de variables:** el género codificado concentra ~50%; cada variable de audio aporta entre 3% y 5,4%.
 
 ![Importancia de variables](images/importancia_variables.png)
+
+### 6.3 Justificación de los hiperparámetros
+
+Para respaldar la configuración del Random Forest se usó **validación cruzada de 3 pliegues agrupada** (`GroupKFold` por artista + nombre, solo con entrenamiento) y una **búsqueda aleatoria de 10 combinaciones** de `max_depth`, `min_samples_leaf` y `max_features` (100 árboles por velocidad). La prueba no se usó para elegir.
+
+| Modelo / configuración | MAE en validación cruzada | MAE en prueba |
+| :--- | :-: | :-: |
+| Regresión Lineal (sin hiperparámetros) | 14,17 (± 0,04) | 14,08 |
+| **Random Forest, configuración actual** (`max_depth=15`, `min_samples_leaf=5`, todas las variables) | **13,78** (± 0,06) | **13,64** |
+| Mejor de la búsqueda (`max_depth=20`, `min_samples_leaf=20`, `max_features=0,5`) | 13,85 | 13,68 |
+| Peor de la búsqueda (`max_depth=6`, `min_samples_leaf=100`, `max_features=0,33`) | 14,95 | — |
+
+* **La búsqueda no mejoró la configuración original**, por lo que se mantiene. Las mejores combinaciones difieren en menos de 0,1 puntos de MAE.
+* El Random Forest supera a la Regresión Lineal en validación cruzada por 0,39 puntos, mucho más que la variación entre pliegues, coherente con la prueba.
+* Árboles muy someros o muy restringidos empeoran el error: el modelo necesita profundidad para capturar la interacción género × audio.
+* **Conclusión:** ajustar hiperparámetros no cambia el resultado. Incluso con la mejor combinación el MAE sigue sobre el baseline de 12,85, así que el límite está en la información de los datos y no en el ajuste del modelo.
+* **Limitaciones:** búsqueda de solo 10 combinaciones, no exhaustiva; y el *target encoding* se calculó con todo el entrenamiento, por lo que el MAE de validación cruzada es levemente optimista (ver 6.2).
 
 ## 7. Evaluación de los KPIs
 
@@ -300,6 +317,22 @@ Tasa global de hits entre canciones distintas: 2,9%.
 
 **Uso en el negocio:** armar playlists por perfil (contextos de uso distintos); priorizar «Bailable y alegre» para campañas de difusión; tratar «Acústico e instrumental» y «En vivo / hablado» como nichos de contexto y no medirlos con la misma vara de éxito. Que un perfil tenga más hits no prueba que sonar así cause la popularidad: está mezclado con el género y la exposición.
 
+### 8.1 Comparación con otros algoritmos de clustering
+
+Para justificar K-Means se compararon tres algoritmos con k = 5 sobre la misma matriz estandarizada, en una muestra aleatoria de 8.000 canciones (el clustering jerárquico no escala a 80.000 filas):
+
+| Algoritmo | Silueta | Davies-Bouldin (menor es mejor) | Calinski-Harabasz | Grupo más chico / más grande | ARI vs K-Means | η² popularity |
+| :--- | :-: | :-: | :-: | :-: | :-: | :-: |
+| **K-Means** | 0,159 | 1,72 | **1.304** | 7,6% / 34,6% | — | 0,010 |
+| Jerárquico (Ward) | **0,185** | **1,56** | 1.094 | **1,2% / 59,8%** | 0,29 | 0,028 |
+| Gaussian Mixture | 0,031 | 3,39 | 470 | 9,5% / 35,9% | 0,14 | 0,038 |
+
+* **Ward** tiene la silueta más alta, pero deja el 60% de las canciones en un solo grupo y uno de apenas 1,2%: no sirve para armar playlists.
+* **Gaussian Mixture** es el peor en todas las métricas internas: sus grupos se solapan casi por completo.
+* **Ningún algoritmo explica la popularidad** (η² ≤ 0,04 frente a 0,38 del género): la elección del algoritmo no cambia la conclusión de negocio.
+* **DBSCAN no se probó:** busca zonas densas separadas por huecos y la silueta baja indica que los atributos forman un continuo.
+* **Decisión:** se mantiene K-Means por equilibrio de tamaños, estabilidad (ARI ≥ 0,99 entre semillas) e interpretabilidad. Limitación: comparación sobre una muestra y con un solo valor de k.
+
 ## 9. Interpretación y recomendaciones
 
 1. **El género domina y el audio aporta poco.** Coincide con el EDA (|r| ≤ 0,10).
@@ -337,26 +370,33 @@ Tasa global de hits entre canciones distintas: 2,9%.
 | **1. Comprensión del negocio** | Definición del problema, objetivos y KPIs (secciones 1 a 3). | Completada |
 | **2. Comprensión de los datos** | Descripción de fuentes, inspección, calidad (nulos, duplicados, anomalías) y EDA: variable objetivo, correlaciones y género (secciones 4 y 5.A a 5.D). | Completada |
 | **3. Preparación de datos** | Limpieza, encoding, escalado, selección de características y exportación (5.E a 5.G); en el modelado: eliminación de compás inválido, partición por artista + nombre y escalado solo con train (sección 6). | Completada |
-| **4. Modelado** | Baselines por género, Regresión Lineal, Random Forest con target encoding, clasificador de hits y K-Means (secciones 6 a 8). | Completada |
+| **4. Modelado** | Baselines por género, Regresión Lineal, Random Forest con target encoding y búsqueda de hiperparámetros, clasificador de hits y K-Means comparado con otros algoritmos (secciones 6 a 8). | Completada |
 | **5. Evaluación** | MAE y RMSE frente al baseline de mediana, Hit Recall con umbral elegido en train, error por género, silueta y estabilidad del clustering (secciones 7 a 9). Los KPIs de MAE y de equidad no se cumplen y se interpretan. | Completada |
-| **6. Despliegue** | No se despliega. Los modelos quedan guardados en `models/` y las recomendaciones están en la sección 9. | Recomendaciones |
+| **6. Despliegue** | No se despliega. No hay despliegue productivo: los modelos entrenados quedan guardados en `models/` (formato `.joblib`) y las recomendaciones están en la sección 9. | Recomendaciones |
 
 ## 12. Estructura del Proyecto
 
 ```
-data/                   dataset original (Spotify_Tracks_Dataset.csv)
-data_procesado/         spotify_tracks_clean.csv, spotify_tracks_anomalias.csv, spotify_tracks_clusters.csv
-notebooks/              Spotify_Notebook.ipynb (EP1 + modelado + K-Means, ejecutado)
-models/                 modelos y escaladores (.joblib) y parametros.json
-images/                 gráficos generados en el EDA y el modelado
-requirements.txt        librerías necesarias
-README.md
+ProyectoSpotifyML2/
+├── data/                   dataset original (Spotify_Tracks_Dataset.csv)
+├── data_procesado/         spotify_tracks_clean.csv, spotify_tracks_anomalias.csv, spotify_tracks_clusters.csv
+├── notebooks/
+│   ├── 01_EDA_Preparacion.ipynb   limpieza, EDA, transformación y exportación de datos
+│   └── 02_Modelado.ipynb          modelos supervisados, KPIs, K-Means y guardado de modelos
+├── models/                 modelos y escaladores (.joblib) y parametros.json (generados por 02_Modelado.ipynb)
+├── images/                 gráficos generados en el EDA y el modelado
+├── requirements.txt        librerías necesarias (versiones fijadas)
+└── README.md
 ```
 
 ### Cómo reproducir
 
-Entorno con el que se ejecutó el notebook: Python 3.12.3 y pandas 3.x.
+Entorno con el que se ejecutaron los notebooks: Python 3.12.3, pandas 3.0.2 y scikit-learn 1.8.0 (versiones fijadas en `requirements.txt`).
 
 1. `pip install -r requirements.txt`
-2. Abrir `notebooks/Spotify_Notebook.ipynb` y ejecutar todas las celdas **desde la carpeta `notebooks/`** (las rutas son relativas: `../data`, `../data_procesado`, `../models`, `../images`).
-3. El notebook regenera los CSV procesados, los gráficos y los modelos. El Random Forest de 300 árboles es la etapa más lenta.
+2. Abrir y ejecutar **todas las celdas, en este orden y desde la carpeta `notebooks/`** (las rutas son relativas: `../data`, `../data_procesado`, `../models`, `../images`):
+   1. `01_EDA_Preparacion.ipynb`: genera `data_procesado/spotify_tracks_clean.csv` y `spotify_tracks_anomalias.csv` y los gráficos del EDA.
+   2. `02_Modelado.ipynb`: lee el CSV limpio y genera los gráficos del modelado, `data_procesado/spotify_tracks_clusters.csv` y los modelos en `models/`.
+3. Las etapas más lentas son el Random Forest de 300 árboles y la búsqueda de hiperparámetros (en total, `02_Modelado.ipynb` tarda cerca de 10 minutos en un equipo de 2 núcleos; `01_EDA_Preparacion.ipynb` tarda menos de 10 segundos).
+
+Los archivos de `models/` se incluyen ya generados para poder usarlos sin reentrenar. Si se vuelven a generar, hay que usar las mismas versiones de scikit-learn y joblib de `requirements.txt`, porque los `.joblib` no son compatibles entre versiones distintas.

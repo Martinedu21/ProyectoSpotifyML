@@ -1,0 +1,44 @@
+{
+  "semilla": 42,
+  "umbral_hit_popularity": 70,
+  "umbral_clasificador_F1": 0.6067169872552963,
+  "umbral_clasificador_recall60_train": 0.48873255382612074,
+  "features_modelo": [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "liveness",
+    "valence",
+    "tempo",
+    "duration_ms",
+    "explicit",
+    "key",
+    "mode",
+    "time_signature",
+    "genre_target_encoded"
+  ],
+  "features_kmeans": [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "instrumentalness",
+    "liveness",
+    "valence",
+    "tempo",
+    "log_duracion"
+  ],
+  "k_kmeans": 5,
+  "nombres_clusters": {
+    "1": "Acústico e instrumental",
+    "0": "En vivo / hablado",
+    "2": "Bailable y alegre",
+    "4": "Energético e intenso",
+    "3": "Acústico moderado"
+  },
+  "clave_particion": "artista + nombre (minúsculas)"
+}
