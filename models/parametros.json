@@ -1,8 +1,8 @@
 {
   "semilla": 42,
   "umbral_hit_popularity": 70,
-  "umbral_clasificador_F1": 0.6067169872552963,
-  "umbral_clasificador_recall60_train": 0.48873255382612074,
+  "umbral_clasificador_F1": 0.6110819763744136,
+  "umbral_clasificador_recall60_train": 0.49200101506688915,
   "features_modelo": [
     "danceability",
     "energy",
