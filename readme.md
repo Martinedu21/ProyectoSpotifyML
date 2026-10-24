@@ -28,6 +28,17 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 3. Entrenar sin los `popularity = 0` **empeora** el error real (MAE 14,54 vs 13,64) y no corrige la equidad entre géneros; sin ceros en la prueba, el modelo solo iguala a su baseline.
 4. K-Means con k = 5 entrega **perfiles sonoros interpretables** (bailable y alegre, energético e intenso, acústico moderado, en vivo / hablado, acústico e instrumental), con 4,6% de hits en el primero y 0,3% en el último. La silueta es baja (≈ 0,16): los grupos se solapan.
 
+### Resultado en una mirada
+
+| KPI | Meta | Resultado | Estado |
+| :--- | :--- | :--- | :--- |
+| MAE vs baseline (mediana del género) | ≥ 20% de mejora | −6,1% (13,64 vs 12,85) | No cumplido |
+| Hit Recall (detección de hits) | ≥ 60% | 65,2% (precisión 9,8%) | Cumplido, a costa de precisión |
+| Equidad del error entre géneros | ≤ 10 puntos | 32,0 puntos | No cumplido |
+| Estabilidad de K-Means (ARI) | ≥ 0,90 | ≥ 0,99 | Cumplido |
+
+**Mensaje central:** el género musical explica ~25% de la popularidad y el audio casi nada. Por eso el modelo de regresión no supera una regla simple (la mediana del género) y el valor está en el clasificador de hits como filtro previo y en los perfiles sonoros para organizar playlists.
+
 ## Herramientas Colaborativas
 
 | Herramienta | Uso en el proyecto | Por qué |
@@ -80,6 +91,7 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 | Tasa de Detección de Hits (Hit Recall) | Negocio / Técnico | Porcentaje (%) | Porcentaje de canciones con popularidad alta (`popularity > 70`) correctamente identificadas para campañas de difusión. Solo el 4,3% del dataset son hits, por lo que es una clase escasa. | ≥ 60% de los hits reales identificados. | **Cumplido solo a costa de precisión:** 65,2% de recall con umbral calibrado en entrenamiento (precisión 9,8%, marca 27,8% del catálogo). Con el umbral de F1: 34,1%. Ver sección 7. |
 | Equidad del error entre géneros | Técnico | Diferencia de MAE (puntos) | Diferencia entre el MAE del género mejor predicho y el peor predicho, para evitar que el modelo favorezca sistemáticamente a ciertos géneros. | Diferencia ≤ 10 puntos entre el mejor y el peor género. | **No cumplido:** 32,0 puntos (`iranian` 2,4 vs `electro` 34,4). Ver sección 7. |
 | Correlación Atributos vs. Popularidad | Exploratorio | Coeficiente de correlación (r) | Grado de asociación entre atributos clave de audio (`danceability`, `energy`, `valence`, `tempo`) y `popularity`, para orientar la selección de canciones para playlists y campañas de difusión. | — (indicador diagnóstico, no tiene meta de mejora). | Medido en el EDA: \|r\| ≤ 0,10. |
+| Estabilidad de la segmentación (ARI) | Técnico (no supervisado) | Adjusted Rand Index entre semillas | Coincidencia de los grupos de K-Means al cambiar la semilla de inicialización. | ARI ≥ 0,90. | **Cumplido:** ARI ≥ 0,99 con tres semillas distintas. Ver sección 8. |
 
 ### KPIs de gestión del proyecto
 
@@ -203,6 +215,15 @@ El MAE se minimiza con la mediana, así que la comparación justa para el KPI de
 
 ### 6.2 Modelos supervisados
 
+**Justificación de los modelos**
+
+| Modelo | Por qué se eligió | Configuración | Limitación |
+| :--- | :--- | :--- | :--- |
+| Baseline: mediana por género | Es el mejor predictor «sin mirar el audio» para el MAE; hace justa la comparación. | Mediana de train por género. | No usa atributos de audio. |
+| Regresión Lineal | Modelo interpretable de referencia; muestra si existe una relación lineal entre audio y popularidad (el EDA anticipaba que sería débil). | Sin regularización, 15 predictoras. | No captura interacciones; MAE 14,08. |
+| Random Forest (regresión) | No exige linealidad y captura interacciones género × audio; poco sensible a las escalas. | 300 árboles, `max_depth=15`, `min_samples_leaf=5` (limitan el sobreajuste). | Hiperparámetros fijados a mano; sobreajusta (brecha 3,18). |
+| Random Forest (clasificador de hits) | El MAE no sirve para una clase escasa (4,3%); se reformula como «¿es hit?» para medir recall. | 150 árboles, `max_depth=12`, `min_samples_leaf=20`, `class_weight="balanced_subsample"`. | Baja precisión con recall alto (ver 7.2). |
+
 * **Regresión Lineal:** modelo base interpretable.
 * **Random Forest** (300 árboles, `max_depth=15`, `min_samples_leaf=5`): captura interacciones género × audio que la regresión lineal no ve. Se eligió por el EDA: relaciones débiles variable a variable (|r| ≤ 0,10) pero con género explicando ~25% de la varianza. Los hiperparámetros se fijaron a mano (no se hizo una búsqueda sistemática).
 * **Primer intento, con 127 predictoras (113 dummies de género):** empeora al baseline (Regresión Lineal 14,05 y Random Forest 16,71 de MAE).
@@ -278,6 +299,8 @@ Se entrena el mismo Random Forest solo con canciones de `popularity > 0` (el *ta
 
 **Datos:** una fila por canción distinta (80.286, por artista + nombre), las 9 variables de audio más la duración en logaritmo, **estandarizadas** (`StandardScaler`) y leídas en sus unidades originales desde el CSV crudo. Sin `tempo = 0` (ya retirados por el filtro de compás).
 
+**Por qué K-Means:** con 80.286 canciones y 10 variables numéricas estandarizadas, K-Means escala bien, entrega centroides legibles en unidades de negocio (BPM, dB, minutos) y es estable entre semillas. El clustering jerárquico (Ward) requiere una matriz de distancias de orden n², inviable a esta escala sin muestrear, y las mezclas gaussianas son más difíciles de explicar a un equipo de programación. Esas alternativas no se ejecutaron en este informe: la elección es de diseño, no un resultado experimental.
+
 **Elección de k:** codo, silueta y Davies-Bouldin para k = 2 a 10. La silueta es máxima en k = 2 (0,24), muy grueso para el negocio; desde k = 3 queda entre 0,15 y 0,17 sin máximo claro y el codo no es marcado. Se elige **k = 5** por interpretabilidad y manejabilidad (el grupo más pequeño, «En vivo / hablado», tiene 7,8% del catálogo). **La silueta de k = 5 es baja (≈ 0,16): los atributos de audio forman un continuo y los grupos se solapan; son una segmentación útil, no categorías naturales.** Con otras semillas se obtienen los mismos grupos (ARI ≥ 0,99).
 
 ![Codo y silueta](images/kmeans_codo_silueta.png)
@@ -349,6 +372,15 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 | **4. Modelado** | Baselines por género, Regresión Lineal, Random Forest con target encoding, clasificador de hits y K-Means (secciones 6 a 8). | Completada |
 | **5. Evaluación** | MAE y RMSE frente al baseline de mediana, Hit Recall con umbral elegido en train, error por género, silueta y estabilidad del clustering (secciones 7 a 9). Los KPIs de MAE y de equidad no se cumplen y se interpretan. | Completada |
 | **6. Despliegue** | No se despliega. No hay despliegue productivo: los modelos entrenados quedan guardados en `models/` (formato `.joblib`) y las recomendaciones están en la sección 9. | Recomendaciones |
+
+### 11.1 Trazabilidad con la pauta de evaluación (EP2)
+
+| Indicador | Ponderación | Dónde se demuestra |
+| :--- | :-: | :--- |
+| IE5: Aplicación de la metodología | 20% | Sección 11 (CRISP-DM) y estructura del notebook por fases. |
+| IE6: Modelos de aprendizaje supervisado | 30% | Secciones 6.1, 6.2 y 7.1 a 7.4 (baselines, dos modelos, clasificador, justificación y sobreajuste). |
+| IE7: Modelo de aprendizaje no supervisado | 30% | Sección 8 (K-Means, elección de k, perfiles, PCA y uso en el negocio). |
+| IE8: Interpretación del desempeño | 20% | Secciones 7 y 9 (KPIs, métricas y recomendaciones para el negocio). |
 
 ## 12. Estructura del Proyecto
 
