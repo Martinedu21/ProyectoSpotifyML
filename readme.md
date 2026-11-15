@@ -1,4 +1,4 @@
-# Evaluación Parcial N°2: Predicción de Popularidad de Canciones en Spotify (Caso C)
+# Evaluación Parcial N°3: Predicción de Popularidad de Canciones en Spotify (Caso C)
 
 **Asignatura:** Machine Learning (MLY1101)
 
@@ -11,6 +11,8 @@
 * Martín Villarroel
 
 ## Resumen del proyecto
+
+> **Esta entrega (EP3)** continúa el trabajo de la EP1 y la EP2 y agrega la **optimización de hiperparámetros, las técnicas de ensamble (bagging, boosting, Voting y Stacking), la evaluación de la generalización con validación cruzada y la selección de la solución analítica óptima** (sección 9). Las secciones 1 a 8 conservan lo hecho en la EP1 y la EP2.
 
 Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predecir la popularidad (`popularity`, 0 a 100) de una canción a partir de sus atributos acústicos y metadatos. Este informe cubre las fases de **comprensión del negocio, comprensión de los datos, preparación de datos, modelado y evaluación** (CRISP-DM): dos modelos supervisados (Regresión Lineal y Random Forest) comparados contra un baseline justo, un clasificador de hits y una segmentación no supervisada con K-Means.
 
@@ -27,6 +29,13 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 2. El resultado más útil es el **clasificador de hits** (ROC-AUC 0,78): detecta 34% de los hits con 14,5% de precisión, o 65% con 9,8% de precisión si se exige la meta de recall.
 3. Entrenar sin los `popularity = 0` **empeora** el error real (MAE 14,54 vs 13,64) y no corrige la equidad entre géneros; sin ceros en la prueba, el modelo solo iguala a su baseline.
 4. K-Means con k = 5 entrega **perfiles sonoros interpretables** (bailable y alegre, energético e intenso, acústico moderado, en vivo / hablado, acústico e instrumental), con 4,6% de hits en el primero y 0,3% en el último. La silueta es baja (≈ 0,16): los grupos se solapan.
+
+**Hallazgos principales del modelado (EP3)**
+
+1. **Optimización (IE9):** `RandomizedSearchCV` con validación cruzada agrupada subió el PR-AUC de 0,191 a 0,208 en Random Forest y de 0,199 a 0,206 en XGBoost. La mejora es modesta (cercana a una desviación entre pliegues en Random Forest y menor en XGBoost), pero redujo mucho el sobreajuste: la brecha train–CV bajó de 0,257 a 0,062 en Random Forest y de 0,330 a 0,175 en XGBoost.
+2. **Ensambles (IE10):** el mejor ensamble (Voting, PR-AUC CV 0,211) supera al árbol individual (0,171) por 0,040 puntos, más de dos desviaciones. Voting y Stacking empatan técnicamente con el mejor modelo individual (Random Forest optimizado, 0,208) y con la regresión logística (0,201).
+3. **Generalización (IE11):** PR-AUC en CV 0,211 ± 0,019, brecha train–CV 0,081 y PR-AUC en test 0,221 (diferencia de +0,010 a favor del test).
+4. **Solución elegida (IE12):** Voting (Random Forest + XGBoost + regresión logística). Con el umbral de recall ≥ 60% detecta 62,5% de los hits marcando 14,2% del catálogo (precisión 18,3%, lift 4,4×). En la EP2 el mismo nivel de recall exigía marcar 27,8% del catálogo con 9,8% de precisión.
 
 ### Resultado en una mirada
 
@@ -45,7 +54,7 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 | :--- | :--- | :--- |
 | **Jupyter Notebook** | Desarrollo del EDA, la preparación de datos, el modelado supervisado y el no supervisado, todo en un único notebook (`notebooks/Spotify_Notebook.ipynb`). | Reúne código, resultados y explicaciones en un solo archivo ejecutable, lo que permite reproducir cada etapa del informe. |
 | **Git / GitHub** | Control de versiones y repositorio compartido del equipo. | Coordina el trabajo de los tres integrantes, mantiene trazabilidad de los cambios y comparte código, datos procesados y gráficos. |
-| **Python** (pandas, numpy, matplotlib, seaborn, scikit-learn, joblib) | Manipulación, visualización, escalado, modelado supervisado, K-Means y guardado de modelos. | Ecosistema estándar de la asignatura para ciencia de datos. |
+| **Python** (pandas, numpy, matplotlib, seaborn, scikit-learn, xgboost, joblib) | Manipulación, visualización, escalado, modelado supervisado, K-Means y guardado de modelos. | Ecosistema estándar de la asignatura para ciencia de datos. |
 
 ## 1. Descripción del Problema de Negocio
 
@@ -98,7 +107,7 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 | KPI | Unidad de Medida | Descripción | Meta |
 | :--- | :--- | :--- | :--- |
 | Cumplimiento de plazos | Porcentaje (%) | Fases de CRISP-DM terminadas en la fecha planificada por el equipo. | 100% de las fases a tiempo para cada entrega (EP1, EP2, EP3). |
-| Avance del proyecto | Fases completadas / fases totales | Seguimiento del progreso según las 6 fases de CRISP-DM (sección 7). | 5 de 6 fases completadas a la fecha de esta entrega (la fase 6, despliegue, queda como recomendaciones). |
+| Avance del proyecto | Fases completadas / fases totales | Seguimiento del progreso según las 6 fases de CRISP-DM (sección 12). | 5 de 6 fases completadas a la fecha de esta entrega (la fase 6, despliegue, queda como recomendaciones). |
 | Calidad de los datos | Porcentaje (%) | Registros válidos (sin nulos ni duplicados exactos) después de la limpieza, sobre el total original. | ≥ 99,5% de registros válidos (actual: 99,6%, 113.549 de 113.999 tras remover duplicados). |
 | Reproducibilidad | Sí / No | El notebook corre de principio a fin sin errores, en un equipo distinto al que lo creó, usando `requirements.txt`. | El notebook se ejecuta completo sin modificaciones en cualquier equipo del grupo. |
 
@@ -332,7 +341,185 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 
 **Uso en el negocio:** armar playlists por perfil (contextos de uso distintos); priorizar «Bailable y alegre» para campañas de difusión; tratar «Acústico e instrumental» y «En vivo / hablado» como nichos de contexto y no medirlos con la misma vara de éxito. Que un perfil tenga más hits no prueba que sonar así cause la popularidad: está mezclado con el género y la exposición.
 
-## 9. Interpretación y recomendaciones
+## 9. EP3: Optimización, ensambles y selección de la solución óptima
+
+Todo lo descrito aquí se reproduce en la sección «EP3» de `notebooks/Spotify_Notebook.ipynb` (Pasos 0 a 8), ejecutada con `RAPIDO = False`.
+
+### 9.1 Foco del modelado y KPIs de la EP3
+
+En la EP2 el modelo de regresión no superó a la regla simple de la mediana del género (MAE 13,64 vs 12,85) y el resultado más útil fue el **clasificador de hits** (`popularity > 70`, 4,3% de las canciones de entrenamiento). Por eso la EP3 optimiza y compara modelos de **clasificación de hits**, y la regresión queda como análisis de apoyo (sección 9.7) para confirmar con validación cruzada que el audio aporta poco.
+
+Como solo ~4,3% de las canciones son hits, la métrica principal es el **PR-AUC** (*average precision*), cuyo valor para un modelo que adivina al azar es la tasa base (0,043 en train y 0,042 en test). La *accuracy* no sirve: un modelo que nunca marca hits tendría ~96%.
+
+| KPI de la EP3 | Meta (propuesta del grupo) | Resultado | Estado |
+| :--- | :--- | :--- | :--- |
+| PR-AUC del modelo final en test | ≥ 0,147 (igualar o superar al Random Forest de la EP2) | 0,221 (Voting), unas 5,3 veces la tasa base | Cumplido |
+| Hit Recall con umbral calibrado en train | ≥ 60% (igual que la EP2) | 62,5% en test (precisión 18,3%; marca 14,2% del catálogo) | Cumplido |
+| Aporte de la optimización de hiperparámetros | Mejora de PR-AUC en CV mayor que la desviación entre pliegues | Random Forest +0,017 (desviación 0,019); XGBoost +0,007 (desviación 0,022) | Parcial: no supera la desviación, aunque reduce el sobreajuste |
+| Aporte del ensamble | El mejor ensamble supera al árbol individual por más de una desviación | Voting +0,040 sobre el árbol (desviación 0,019) | Cumplido frente al árbol; sin ventaja significativa frente al mejor modelo individual |
+| Generalización | Brecha train–CV del modelo elegido menor que la del Random Forest inicial | 0,081 vs 0,257 | Cumplido |
+
+### 9.2 Estado del arte y comparación con otros trabajos
+
+Antes de elegir los modelos se revisó qué se ha hecho con datos parecidos. **Los trabajos no son directamente comparables** (datasets, definición de «hit» y métricas distintas), por lo que sirven para justificar las decisiones y para ubicar el resultado, no para comparar cifras una a una.
+
+| Trabajo | Datos y definición de hit | Modelos | Qué aporta a este proyecto |
+| :--- | :--- | :--- | :--- |
+| Middlebrook y Sheik (2019), *Song Hit Prediction: Predicting Billboard Hits Using Spotify Data* ([arXiv:1908.08609](https://arxiv.org/abs/1908.08609)) | ~1,8 millones de canciones de Spotify cruzadas con el Billboard Hot 100; hit = aparece en el ranking; conjunto balanceado 12.000 hits y 12.000 no hits. | Regresión logística, red neuronal, Random Forest y SVM. | Reportan al Random Forest como el mejor modelo (88% de *accuracy*, sobre datos balanceados). Respalda usar Random Forest, y muestra por qué aquí se usa PR-AUC: nuestros datos no están balanceados. |
+| Dawson, Mann, Roske y Vasseur (2021), *Spotify: You have a Hit!*, SMU Data Science Review ([enlace](https://scholar.smu.edu/datasciencereview/vol5/iss3/9)) | Más de 400.000 canciones de la API de Spotify; hit = popularidad > 90. | LASSO y XGBoost. | Respalda XGBoost como modelo de boosting para este problema. |
+| Cabansag y Ntegeka (2025), *Prediction of Spotify Chart Success Using Audio and Streaming Features* ([arXiv:2508.11632](https://arxiv.org/abs/2508.11632)) | 14.639 canciones del Top 200 diario de EE. UU. 2024, con atributos de audio y datos tempranos de interacción. | Pipeline de clasificación del éxito en ranking. | Incorpora datos de interacción además del audio, en línea con nuestra recomendación de sumar datos del artista y de exposición. |
+| Trabajos de curso con el mismo dataset de Kaggle (`maharshipandya`): informe del Erdős Institute y un proyecto publicado en RPubs | Mismo *Spotify Tracks Dataset*; clasificación de canciones populares / hits (popularidad ≥ 70 en el proyecto de RPubs). | Modelos de clasificación (en el RPubs, tres clasificadores bajo fuerte desbalance). | Plantean la misma pregunta, incluido el límite de predecir solo con audio. Son trabajos de curso, no revisados por pares: citarlos como referencia y no como evidencia concluyente. |
+
+**Conclusión de la revisión:** los ensambles de árboles (Random Forest y XGBoost) son la elección habitual para este tipo de problema, por lo que se comparan aquí como bagging y boosting. Varios trabajos incorporan información que no es de audio (interacción, artista, ranking) para mejorar el resultado, lo que coincide con nuestra conclusión de que el audio y el género explican poco. Nuestro ROC-AUC de la EP2 (0,78) y el del modelo final (0,877 en test) deben leerse con esa cautela. *[Antes de la defensa, abrir cada fuente y confirmar que la descripción coincide con lo que dicen; ajustar si algo difiere.]*
+
+### 9.3 Diseño experimental
+
+* **Validación agrupada:** `GroupKFold` de 5 pliegues, agrupando por artista + nombre de la canción (la misma regla anti-fuga de la EP2). **Los mismos pliegues se usan para todos los modelos**, para que la comparación sea justa.
+* **Género sin fuga:** el género entra como etiqueta y se codifica con `TargetEncoder` **dentro de cada pliegue** (dentro de un `Pipeline`), no con un promedio calculado sobre todo el train.
+* **Datos:** 90.011 canciones en train y 22.408 en test, con 14 variables numéricas (9 de audio y 5 discretas o de metadatos) más el género (15 predictoras). Hits: 4,33% en train y 4,2% en test.
+* **Uso del test:** no se usa para elegir hiperparámetros ni modelo. Se consulta solo en la importancia por permutación (Paso 3, explicativa) y en la comparación final del Paso 7.
+* **Umbrales:** se calibran solo con probabilidades *out-of-fold* del entrenamiento, igual que en la EP2.
+
+### 9.4 Bagging: árbol de decisión vs Random Forest (Paso 1)
+
+| Modelo | PR-AUC | ROC-AUC | Recall (hit) | Precisión (hit) | % marcado como hit |
+| :--- | :-: | :-: | :-: | :-: | :-: |
+| Azar (tasa base) | 0,043 | 0,50 | — | — | — |
+| Árbol de decisión (`max_depth=6`, `min_samples_leaf=50`) | 0,177 | 0,849 | 85,9% | 11,4% | 32,7% |
+| Random Forest (150 árboles) | 0,186 | 0,861 | 76,3% | 13,9% | 23,7% |
+
+*(Predicciones out-of-fold de 5 pliegues agrupados, umbral 0,5; PR-AUC calculado sobre todas las predicciones juntas, por lo que difiere levemente del promedio por pliegue de la sección 9.7.)*
+
+**Interpretación:** un árbol individual tiene alta varianza: cambia mucho si cambian los datos. El Random Forest entrena muchos árboles con muestras *bootstrap* y subconjuntos de variables y promedia sus votos, por lo que los errores individuales se cancelan. El Random Forest supera al árbol en PR-AUC (+0,009 en esta tabla y +0,020 en el promedio por pliegue de la sección 9.7, donde gana en los 5 pliegues) y, con el mismo umbral, marca menos canciones (23,7% frente a 32,7%) con mayor precisión. Con `class_weight="balanced"` ambos modelos marcan muchas canciones como hit, así que el recall es alto y la precisión baja.
+
+![Matrices de confusión](images/ep3_paso1_matrices_confusion.png)
+
+### 9.5 Boosting: XGBoost estándar vs ponderado (Paso 2)
+
+| Modelo | PR-AUC | Recall (hit) | Precisión (hit) | % marcado como hit |
+| :--- | :-: | :-: | :-: | :-: |
+| XGBoost estándar | 0,196 | 1,1% | 23,4% | 0,2% |
+| XGBoost ponderado (`scale_pos_weight` ≈ 22 = no-hits / hits) | 0,192 | 74,1% | 14,2% | 22,6% |
+
+**Interpretación:** el boosting entrena árboles en secuencia, cada uno corrigiendo los errores del anterior, y reduce principalmente el **sesgo** (el bagging reduce la **varianza**). Con solo ~4,3% de hits, el XGBoost estándar casi nunca marca un hit a umbral 0,5 (recall 1,1%, marca solo 0,2% de las canciones). Pero su PR-AUC es igual de bueno (0,196 vs 0,192): **el ponderado no «aprende mejor», solo mueve el umbral de decisión**. Por eso en el Paso 7 el umbral se elige explícitamente según el negocio. Se usa el ponderado como referencia porque entrega un recall alto sin ajustar el umbral.
+
+![XGBoost ponderado](images/ep3_paso2_xgboost_ponderado.png)
+
+### 9.6 Importancia de variables (Paso 3)
+
+Se calcula con dos métodos sobre el Random Forest: reducción de impureza (MDI), que se sesga hacia variables continuas, e importancia por permutación en test (caída del PR-AUC al barajar una columna). Los valores siguientes están leídos de los gráficos.
+
+![Importancia MDI](images/ep3_paso3_importancia_mdi.png)
+![Importancia por permutación](images/ep3_paso3_importancia_permutacion.png)
+
+* **El género domina con ambos métodos:** ~0,57 de la importancia MDI y una caída de ~0,137 en PR-AUC al barajarlo, unas seis veces más que cualquier otra variable.
+* **Después del género los métodos no coinciden:** MDI pone `instrumentalness`, `loudness` y `energy` (~0,05 a 0,07 cada una); la permutación pone `energy` (~0,022), `duration_ms` (~0,017) e `instrumentalness` (~0,016). Cada atributo de audio aporta muy poco (caídas menores a 0,025), consistente con las correlaciones |r| ≤ 0,10 del EDA.
+* **MDI infla variables continuas:** `tempo` aparece en el medio del ranking MDI (~0,03), pero su permutación es negativa (barajarlo mejora levemente el PR-AUC), es decir, el modelo usa `tempo` para ajustar ruido. `key`, `mode` y `time_signature` no aportan.
+
+**Decisiones de negocio:** 1) géneros a priorizar para difusión: [COMPLETAR con los 5 a 10 géneros de mayor tasa de hits del train]; 2) perfil sonoro (K-Means) que acompaña a más hits: «Bailable y alegre» (4,6% de hits frente a 2,9% global, sección 8); 3) datos que faltan para mejorar el modelo: popularidad o seguidores del artista y fecha de lanzamiento.
+
+### 9.7 Validación cruzada y capacidad de generalización (Paso 4)
+
+| Modelo | PR-AUC CV (media ± desv.) | ROC-AUC CV | PR-AUC train | Brecha train–CV | Segundos |
+| :--- | :-: | :-: | :-: | :-: | :-: |
+| Árbol de decisión | 0,171 ± 0,011 | 0,849 | 0,185 | 0,015 | 5 |
+| Random Forest (configuración inicial) | 0,191 ± 0,019 | 0,861 | 0,448 | 0,257 | 44 |
+| XGBoost ponderado (configuración inicial) | 0,199 ± 0,022 | 0,860 | 0,529 | 0,330 | 15 |
+
+PR-AUC por pliegue: árbol [0,177 0,158 0,186 0,157 0,175]; Random Forest [0,195 0,161 0,219 0,183 0,195]; XGBoost [0,202 0,163 0,231 0,189 0,209].
+
+![Train vs validación cruzada](images/ep3_paso4_train_vs_cv.png)
+
+**Estabilidad:** la desviación entre pliegues (0,011 a 0,022) equivale a entre 6% y 11% de la media, más que el 5% usado como referencia. Pero los tres modelos suben y bajan juntos (el pliegue 2 es el más difícil y el 3 el más fácil para todos), por lo que la variación viene de la dificultad de cada pliegue y no del modelo. Por eso las diferencias entre modelos son consistentes: el Random Forest supera al árbol en los 5 pliegues y XGBoost supera o iguala al Random Forest en los 5. **Sobreajuste:** el árbol casi no sobreajusta (brecha 0,015) pero rinde menos; Random Forest y XGBoost sobreajustan mucho en su configuración inicial (train 0,45 y 0,53 contra ~0,19 y ~0,20 en CV). La optimización de la sección 9.8 ataca precisamente este problema.
+
+**Regresión de apoyo (popularidad 0–100).** Con la misma validación agrupada, el MAE del Random Forest es 13,89 ± 0,07 frente a 13,10 ± 0,08 del baseline de mediana por género: **−6,0%** (la meta del KPI era ≥ 20%), con un MAE de entrenamiento de 10,74 (brecha 3,15 puntos). Se confirma el −6,1% de la EP2: el audio no mejora la predicción de la popularidad y el valor del proyecto está en el clasificador de hits.
+
+### 9.8 Optimización de hiperparámetros (Paso 5)
+
+Se usa `RandomizedSearchCV` (15 configuraciones × 5 pliegues agrupados = 75 ajustes por modelo), optimizando PR-AUC. Se eligió búsqueda aleatoria y no una grilla porque, con el mismo presupuesto de cálculo, prueba más valores distintos de cada hiperparámetro.
+
+| Modelo | Hiperparámetro | Rango explorado |
+| :--- | :--- | :--- |
+| Random Forest | `n_estimators` | 100 a 399 |
+| | `max_depth` | 6 a 24 |
+| | `min_samples_leaf` | 5 a 79 |
+| | `max_features` | `sqrt`, 0,3, 0,5, 0,8 |
+| XGBoost | `n_estimators` | 100 a 499 |
+| | `learning_rate` | 0,01 a 0,2 (escala logarítmica) |
+| | `max_depth` | 3 a 8 |
+| | `subsample` y `colsample_bytree` | 0,6 a 1,0 |
+| | `min_child_weight` | 1 a 19 |
+| | `reg_lambda` | 0,1 a 10 (escala logarítmica) |
+
+| Modelo | PR-AUC CV antes | PR-AUC CV optimizado | Mejora | Brecha train–CV (antes → después) | Mejores parámetros |
+| :--- | :-: | :-: | :-: | :-: | :--- |
+| Random Forest | 0,1906 | 0,2079 | +0,0173 | 0,257 → 0,062 | `max_depth=7`, `max_features=0.8`, `min_samples_leaf=64`, `n_estimators=363` |
+| XGBoost | 0,1989 | 0,2057 | +0,0068 | 0,330 → 0,175 | `learning_rate=0.0317`, `max_depth=4`, `min_child_weight=2`, `n_estimators=439`, `reg_lambda=0.3034`, `subsample=0.8733`, `colsample_bytree=0.8253` |
+
+![Búsqueda de hiperparámetros](images/ep3_paso5_busqueda_hiperparametros.png)
+
+**Justificación de las decisiones:** los mejores modelos son más simples y regularizados que los iniciales. En Random Forest el óptimo usa árboles mucho menos profundos (7 en vez de 12) y hojas más grandes (64 en vez de 20); la asociación de Spearman entre hiperparámetro y PR-AUC es −0,53 para `max_depth` y +0,51 para `min_samples_leaf`. En XGBoost el óptimo usa una tasa de aprendizaje baja (0,03; Spearman −0,50), árboles poco profundos (4; −0,47) y más regularización. Es coherente con la sección 9.7: como la señal es débil, el principal riesgo es memorizar ruido, y limitar la complejidad reduce la brecha train–CV (de 0,257 a 0,062 en Random Forest). Según el gráfico, la configuración inicial queda en la parte baja del ranking en Random Forest (unas 12 de 15 configuraciones la superan) y en la parte media en XGBoost (unas 8 de 15).
+
+**Limitaciones:** (1) la mejora de PR-AUC es pequeña: 0,017 en Random Forest (cercana a una desviación entre pliegues) y 0,007 en XGBoost (menor que su desviación), y las barras de error de las mejores configuraciones se solapan, por lo que no se puede distinguir entre ellas; (2) el mejor de 15 configuraciones queda favorecido en la validación cruzada (sesgo de selección), por eso la comparación final se confirma en el test del Paso 7; (3) `n_iter` es limitado y una búsqueda mayor podría mejorar levemente (la búsqueda de Random Forest tardó ~25 minutos y la de XGBoost ~2).
+
+### 9.9 Ensambles: Voting y Stacking (Paso 6)
+
+Con los modelos optimizados se comparan tres familias: **bagging** (Random Forest), **boosting** (XGBoost) y **combinación de modelos distintos**. *Voting* promedia las probabilidades de Random Forest, XGBoost y regresión logística; *Stacking* entrena un metamodelo (regresión logística) que aprende a combinar las predicciones de esos tres modelos, generadas con validación agrupada para no filtrar información.
+
+| Modelo | PR-AUC CV (media ± desv.) | ROC-AUC CV | Brecha train–CV | Segundos (validación cruzada) |
+| :--- | :-: | :-: | :-: | :-: |
+| Regresión logística (referencia) | 0,201 ± 0,019 | 0,857 | 0,003 | 1 |
+| Árbol de decisión (referencia) | 0,171 ± 0,011 | 0,849 | 0,015 | 2 |
+| Random Forest optimizado (bagging) | 0,208 ± 0,015 | 0,867 | 0,062 | 204 |
+| XGBoost optimizado (boosting) | 0,206 ± 0,019 | 0,864 | 0,175 | 12 |
+| Voting (RF + XGB + LR) | **0,211 ± 0,019** | 0,868 | 0,081 | 201 |
+| Stacking (RF + XGB + LR) | 0,209 ± 0,017 | 0,868 | 0,097 | 913 |
+
+**Aporte del ensamble:** el mejor ensamble (Voting) supera al árbol individual por **0,040 puntos de PR-AUC** (más de dos desviaciones), un aporte claro de combinar muchos árboles. Bagging y boosting rinden igual (0,208 vs 0,206), con perfiles distintos: el Random Forest sobreajusta menos (brecha 0,062) y XGBoost entrena unas 17 veces más rápido. **Pero combinar modelos distintos no aporta de forma significativa:** Voting (+0,003) y Stacking (+0,001) quedan dentro de la desviación frente al mejor modelo individual, y Stacking cuesta 913 segundos. Además, la **regresión logística** (0,201, entrenada en 1 segundo) queda también dentro del margen de error de los ensambles, lo que indica que gran parte de la señal es simple (principalmente el género) y que los modelos complejos agregan poco.
+
+### 9.10 Generalización final y selección de la solución óptima (Paso 7)
+
+Cada finalista se reentrena con todo el train y se evalúa **una vez** en el test. La decisión combina desempeño en CV, estabilidad (desviación), brecha train–CV, consistencia con el test, costo de entrenamiento e interpretabilidad.
+
+| Modelo | PR-AUC CV | ± | Brecha train–CV | PR-AUC test | Dif. CV vs test | ROC-AUC test | Segundos | ¿Distinto del mejor en CV? |
+| :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :--- |
+| **Voting (RF + XGB + LR)** | 0,211 | 0,019 | 0,081 | 0,221 | +0,010 | 0,877 | 201 | mejor en CV |
+| Stacking (RF + XGB + LR) | 0,209 | 0,017 | 0,097 | 0,220 | +0,011 | 0,875 | 913 | empate técnico |
+| Random Forest optimizado (bagging) | 0,208 | 0,015 | 0,062 | 0,216 | +0,008 | 0,874 | 204 | empate técnico |
+| XGBoost optimizado (boosting) | 0,206 | 0,019 | 0,175 | 0,221 | +0,015 | 0,874 | 12 | empate técnico |
+| Regresión logística | 0,201 | 0,019 | 0,003 | 0,210 | +0,009 | 0,867 | 1 | empate técnico |
+| Árbol de decisión | 0,171 | 0,011 | 0,015 | 0,176 | +0,005 | 0,860 | 2 | peor |
+
+**Solución elegida: Voting (Random Forest + XGBoost + regresión logística).** Es la mejor en PR-AUC CV (0,211) y empata con Stacking en ROC-AUC CV (0,868); tiene el mejor ROC-AUC en test (0,877) y un PR-AUC en test (0,221) igual al máximo; su brecha train–CV (0,081) es moderada; y promedia tres modelos de naturaleza distinta, lo que lo hace más estable que depender de uno solo. Frente a Stacking, rinde igual con una cuarta parte del tiempo. **Se reconoce que es un empate técnico:** Random Forest, XGBoost y Stacking están dentro de una desviación del Voting, por lo que la elección se apoya en el mejor rendimiento combinado más que en una ventaja significativa. El costo (~200 segundos de validación cruzada) es aceptable porque el modelo se usa en lote para armar una lista corta. Si se priorizara la velocidad, XGBoost optimizado (12 segundos, PR-AUC test 0,221) es la alternativa; si se priorizara la interpretabilidad, la regresión logística (1 segundo, PR-AUC test 0,210).
+
+**Consistencia con el test:** todos los modelos rinden unos 0,005 a 0,015 *mejor* en el test que en la CV (Voting +0,010). No hay señal de sobreajuste a la CV: el modelo final se entrena con todo el train (la CV usa 80%) y la curva de aprendizaje todavía sube levemente.
+
+![Curva de aprendizaje](images/ep3_paso7_curva_aprendizaje.png)
+
+**Curva de aprendizaje (Voting):** el PR-AUC de train baja de 0,445 a 0,291 y el de validación sube de 0,115 a 0,211, con lo que la brecha se reduce de ~0,33 a ~0,08. En el último tramo la validación casi se aplana (0,206 → 0,211 al pasar de 80% a 100% de los datos), por lo que **más canciones aportarían poco; el límite lo pone la información disponible** (faltan datos del artista y de la fecha de lanzamiento), no el modelo ni la cantidad de datos.
+
+| Umbral (calibrado solo con train) | Valor | Recall hits | Precisión | % del catálogo marcado | Lift vs azar |
+| :--- | :-: | :-: | :-: | :-: | :-: |
+| Máximo F1 | 0,783 | 46,2% | 22,3% | 8,6% | 5,4× |
+| Recall ≥ 60% | 0,674 | 62,5% | 18,3% | 14,2% | 4,4× |
+
+**Comparación con la EP2** (mismo test): Random Forest de la EP2, PR-AUC 0,142 y ROC-AUC 0,778 al recalcularlo en el notebook (0,147 y 0,779 en el informe de la EP2); solución EP3, PR-AUC 0,221 y ROC-AUC 0,877. Con un recall parecido (65,2% en la EP2 y 62,5% ahora), la EP2 debía marcar 27,8% del catálogo con 9,8% de precisión (lift 2,3×), y la solución EP3 marca 14,2% con 18,3% de precisión (lift 4,4×): **la mitad de las canciones por revisar y casi el doble de precisión**. Una explicación probable de la mejora, a confirmar con la prueba de ablación del notebook, es que la EP3 codifica el género con la tasa de hits de cada género dentro de un `Pipeline`, mientras que el modelo de la EP2 lo codificaba con el promedio de popularidad; como el género concentra la señal, esa diferencia pesa mucho.
+
+![Curvas precisión-recall comparadas](images/ep3_paso7_curva_pr_comparada.png)
+
+**Cómo explicar recall y precisión (pregunta frecuente en la defensa).** Con el umbral de recall ≥ 60% el modelo encuentra 62 o 63 de cada 100 hits reales (recall). Como marca 14,2% del catálogo y los hits son solo ~4,2%, solo ~18 de cada 100 canciones marcadas son hits (precisión), aun así 4,4 veces mejor que elegir al azar. Para el negocio es una lista corta que revisa una persona; si se quiere más precisión, se sube el umbral (con el umbral F1 la precisión sube a 22,3% y el recall baja a 46,2%).
+
+### 9.11 Conclusiones y recomendaciones de la EP3
+
+1. **Optimización (IE9):** PR-AUC CV de 0,191 a 0,208 (Random Forest) y de 0,199 a 0,206 (XGBoost). La mejora es pequeña, pero los hiperparámetros más influyentes (menor profundidad, hojas más grandes, menor tasa de aprendizaje, más regularización) redujeron el sobreajuste de forma importante.
+2. **Ensambles (IE10):** árbol individual 0,171 frente a Voting 0,211 (+0,040). Combinar muchos árboles (bagging y boosting) mejora claramente al árbol; Voting y Stacking solo empatan con el mejor modelo individual.
+3. **Generalización (IE11):** brecha train–CV de 0,081 y diferencia CV vs test de +0,010; la curva de aprendizaje indica que más datos aportarían poco.
+4. **Solución elegida (IE12):** Voting (RF + XGBoost + regresión logística), con PR-AUC 0,221 y ROC-AUC 0,877 en test, por mejor rendimiento combinado, consistencia entre CV y test, y estabilidad.
+5. **Recomendaciones de negocio:** usar el modelo como filtro previo que arma una lista corta para revisión humana; fijar el umbral según la capacidad de revisión de la campaña (recall ≥ 60% marcando ~14% del catálogo, o máximo F1 marcando ~9%); incorporar datos del artista y la fecha de lanzamiento, que es donde está el mayor potencial de mejora; reportar siempre el error por género.
+6. **Limitaciones:** el audio aporta poco y el género concentra la señal; faltan datos de artista y fecha de lanzamiento; la unidad de análisis es canción × género; el significado de `popularity = 0` no está aclarado; la búsqueda de hiperparámetros es acotada (15 configuraciones por modelo) y su resultado en CV es algo optimista; varios modelos empatan técnicamente, incluida la regresión logística, por lo que la ventaja del ensamble elegido es pequeña.
+7. **Sesgos y ética:** el modelo reproduce el sesgo de popularidad previo y favorece géneros con más hits históricos; puede perjudicar a artistas emergentes. Usarlo para apoyar y no para decidir automáticamente (sección 11).
+
+## 10. Interpretación y recomendaciones (EP2)
 
 1. **El género domina y el audio aporta poco.** Coincide con el EDA (|r| ≤ 0,10).
 2. **El modelo de regresión no supera una regla simple.** El Random Forest mejora el RMSE (18,91 vs 20,65), pero su MAE es peor que la mediana del género; además sobreajusta. No debe usarse para predecir la popularidad exacta de una canción.
@@ -344,7 +531,7 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 
 **Limitaciones:** la popularidad es una foto en un momento y depende de reproducciones recientes; el dataset está balanceado por género por diseño; el 14% de ceros ensucia la variable objetivo; el target encoding no usa validación cruzada (ver 6.2); y una canción con varios `track_id` y popularidades distintas conserva solo su primera fila en el clustering.
 
-## 10. Consideraciones Éticas, Sesgos y Privacidad
+## 11. Consideraciones Éticas, Sesgos y Privacidad
 
 | Riesgo | Descripción | Mitigación |
 | :--- | :--- | :--- |
@@ -354,6 +541,7 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 | **Duplicidad de canciones** | Hay canciones catalogadas en varios géneros (35,3% de las filas) y 4.698 tienen más de un `track_id`: riesgo de sobreponderarlas y de fuga de información entre entrenamiento y prueba. | Particionar agrupando por artista + nombre de la canción y usar canciones distintas en el clustering. |
 | **Uso responsable de las predicciones** | Usar el modelo para decidir a qué artistas apoyar puede favorecer siempre a lo ya popular y perjudicar a artistas emergentes o a géneros con menor exposición. | Usar las predicciones como apoyo a la decisión, no como criterio único. |
 | **Privacidad** | Los datos son públicos y provienen de la API de Spotify (metadatos e indicadores acústicos). No incluyen información personal de usuarios ni datos de comportamiento individual, pero sí nombres reales de artistas. | No publicar predicciones individuales asociadas a un artista específico y respetar los términos de uso de la API de Spotify. |
+| **Umbral orientado a recall y ponderación de clases (EP3)** | Para detectar hits se pondera la clase minoritaria y se baja el umbral de decisión, lo que aumenta los falsos positivos y puede dirigir recursos hacia canciones que no los necesitan. Además, el género codificado concentra la señal, de modo que el modelo tiende a favorecer géneros con más hits históricos. | Usar la salida como lista corta para revisión humana, informar el costo en precisión de cada umbral y reportar el desempeño por género antes de usar el modelo con artistas de géneros poco representados. |
 
 ### Marco normativo de referencia
 
@@ -362,18 +550,18 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 * **GDPR (Reglamento General de Protección de Datos, UE)**, como referencia internacional: principios de minimización de datos y derecho a no ser objeto de decisiones automatizadas sin explicación, aplicables si el modelo se usara para decisiones sobre artistas específicos.
 * **Términos de uso de la API de Spotify**, que restringen el uso comercial de los datos obtenidos y deben respetarse en cualquier aplicación del modelo más allá de este trabajo académico.
 
-## 11. Metodología de Trabajo (CRISP-DM)
+## 12. Metodología de Trabajo (CRISP-DM)
 
 | Fase | Qué se hizo | Estado |
 | :--- | :--- | :--- |
 | **1. Comprensión del negocio** | Definición del problema, objetivos y KPIs (secciones 1 a 3). | Completada |
 | **2. Comprensión de los datos** | Descripción de fuentes, inspección, calidad (nulos, duplicados, anomalías) y EDA: variable objetivo, correlaciones y género (secciones 4 y 5.A a 5.D). | Completada |
 | **3. Preparación de datos** | Limpieza, encoding, escalado, selección de características y exportación (5.E a 5.G); en el modelado: eliminación de compás inválido, partición por artista + nombre y escalado solo con train (sección 6). | Completada |
-| **4. Modelado** | Baselines por género, Regresión Lineal, Random Forest con target encoding, clasificador de hits y K-Means (secciones 6 a 8). | Completada |
-| **5. Evaluación** | MAE y RMSE frente al baseline de mediana, Hit Recall con umbral elegido en train, error por género, silueta y estabilidad del clustering (secciones 7 a 9). Los KPIs de MAE y de equidad no se cumplen y se interpretan. | Completada |
-| **6. Despliegue** | No se despliega. No hay despliegue productivo: los modelos entrenados quedan guardados en `models/` (formato `.joblib`) y las recomendaciones están en la sección 9. | Recomendaciones |
+| **4. Modelado** | Baselines por género, Regresión Lineal, Random Forest con target encoding, clasificador de hits y K-Means (secciones 6 a 8); en la EP3, bagging, boosting, optimización de hiperparámetros, Voting y Stacking (sección 9). | Completada |
+| **5. Evaluación** | MAE y RMSE frente al baseline de mediana, Hit Recall con umbral elegido en train, error por género, silueta y estabilidad del clustering (secciones 7 a 10); en la EP3, validación cruzada agrupada, brecha train–validación, curva de aprendizaje, test final y selección del modelo (secciones 9.7 a 9.10). Los KPIs de MAE y de equidad no se cumplen y se interpretan. | Completada |
+| **6. Despliegue** | No se despliega. No hay despliegue productivo: los modelos entrenados quedan guardados en `models/` (formato `.joblib`) y las recomendaciones están en las secciones 9.11 y 10. | Recomendaciones |
 
-### 11.1 Trazabilidad con la pauta de evaluación (EP2)
+### 12.1 Trazabilidad con la pauta de evaluación (EP2 y EP3)
 
 | Indicador | Ponderación | Dónde se demuestra |
 | :--- | :-: | :--- |
@@ -382,16 +570,25 @@ El PCA se usa solo para **visualizar** los grupos: K-Means se ajustó sobre las 
 | IE7: Modelo de aprendizaje no supervisado | 30% | Sección 8 (K-Means, elección de k, perfiles, PCA y uso en el negocio). |
 | IE8: Interpretación del desempeño | 20% | Secciones 7 y 9 (KPIs, métricas y recomendaciones para el negocio). |
 
-## 12. Estructura del Proyecto
+**Trazabilidad con la pauta de la EP3** (Evaluación Parcial N°3, 30%):
+
+| Indicador | Ponderación | Dónde se demuestra |
+| :--- | :-: | :--- |
+| IE9: Optimización de hiperparámetros del modelo | 20% | Sección 9.8 (espacios de búsqueda, `RandomizedSearchCV` con validación agrupada, mejora frente a la configuración inicial y justificación). |
+| IE10: Implementación de técnicas de ensamble | 30% | Secciones 9.4, 9.5 y 9.9 (bagging, boosting estándar y ponderado, Voting y Stacking frente al árbol individual). |
+| IE11: Evaluación de la capacidad de generalización | 20% | Secciones 9.7 y 9.10 (validación cruzada agrupada, media ± desviación, brecha train–CV, curva de aprendizaje y test final). |
+| IE12: Selección y justificación de la solución analítica óptima | 30% | Sección 9.10 (tabla comparativa con criterios de decisión) y sección 9.11 (conclusiones y recomendaciones). |
+
+## 13. Estructura del Proyecto
 
 ```
 ProyectoSpotifyML/
 ├── data/                   dataset original (Spotify_Tracks_Dataset.csv)
-├── data_procesado/         spotify_tracks_clean.csv, spotify_tracks_anomalias.csv, spotify_tracks_clusters.csv
+├── data_procesado/         spotify_tracks_clean.csv, spotify_tracks_anomalias.csv, spotify_tracks_clusters.csv, ep3_comparacion_modelos.csv
 ├── notebooks/
 │   └── Spotify_Notebook.ipynb     limpieza, EDA, transformación, modelos supervisados, KPIs, K-Means y guardado de modelos
-├── models/                 modelos y escaladores (.joblib) y parametros.json (generados por Spotify_Notebook.ipynb)
-├── images/                 gráficos generados en el EDA y el modelado
+├── models/                 modelos y escaladores (.joblib), incluido ep3_modelo_final.joblib, y parametros.json (generados por Spotify_Notebook.ipynb)
+├── images/                 gráficos generados en el EDA, el modelado y la EP3 (ep3_paso*.png)
 ├── requirements.txt        librerías necesarias (versiones fijadas)
 └── readme.md
 ```
@@ -400,8 +597,9 @@ ProyectoSpotifyML/
 
 Entorno con el que se ejecutó el notebook: Python 3.12.3, pandas 3.0.2 y scikit-learn 1.8.0 (versiones fijadas en `requirements.txt`).
 
-1. `pip install -r requirements.txt`
+1. `pip install -r requirements.txt` (incluye `xgboost`, con su versión fijada)
 2. Abrir `notebooks/Spotify_Notebook.ipynb` y ejecutar **todas las celdas, de arriba abajo, con la carpeta `notebooks/` como directorio de trabajo** (las rutas son relativas: `../data`, `../data_procesado`, `../models`, `../images`). La primera parte (EDA y preparación) genera `data_procesado/spotify_tracks_clean.csv` y `spotify_tracks_anomalias.csv` y los gráficos del EDA; la segunda («Modelado (EP2)») lee ese CSV limpio y genera los gráficos del modelado, `data_procesado/spotify_tracks_clusters.csv` y los modelos en `models/`.
-3. La etapa más lenta es el entrenamiento del Random Forest de 300 árboles y de los clasificadores de hits.
+3. La etapa más lenta de la parte EP2 es el entrenamiento del Random Forest de 300 árboles y de los clasificadores de hits.
+4. La sección «EP3» usa variables creadas en el modelado de la EP2 (`X_train`, `y_train`, `grupos_train`, `clf`, etc.), por lo que hay que ejecutar el notebook **completo** (*Restart & Run All*). Con `RAPIDO = True` (Paso 0) corre una prueba rápida con menos iteraciones; para la corrida final del informe usar `RAPIDO = False`. La búsqueda de hiperparámetros, el Stacking y la curva de aprendizaje son las etapas más lentas de la EP3. Genera `models/ep3_modelo_final.joblib`, `data_procesado/ep3_comparacion_modelos.csv` y los gráficos `images/ep3_paso*.png`.
 
 Los archivos de `models/` se incluyen ya generados para poder usarlos sin reentrenar. Si se vuelven a generar, hay que usar las mismas versiones de scikit-learn y joblib de `requirements.txt`, porque los `.joblib` no son compatibles entre versiones distintas.
