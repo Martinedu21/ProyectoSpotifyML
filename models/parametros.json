@@ -1,8 +1,8 @@
 {
   "semilla": 42,
   "umbral_hit_popularity": 70,
-  "umbral_clasificador_F1": 0.6110819763744136,
-  "umbral_clasificador_recall60_train": 0.49200101506688915,
+  "umbral_clasificador_F1": 0.6024975884917698,
+  "umbral_clasificador_recall60_train": 0.48953726527388475,
   "features_modelo": [
     "danceability",
     "energy",
@@ -40,5 +40,31 @@
     "4": "Energético e intenso",
     "3": "Acústico moderado"
   },
-  "clave_particion": "artista + nombre (minúsculas)"
+  "clave_particion": "artista + nombre (minúsculas)",
+  "ep3": {
+    "modelo_elegido": "Voting (RF + XGB + LR)",
+    "metrica_seleccion": "average_precision (PR-AUC)",
+    "cv": "GroupKFold(5) por artista + nombre",
+    "n_iter_busqueda": 15,
+    "scale_pos_weight": 22.092891968180652,
+    "mejores_parametros": {
+      "Random Forest": {
+        "max_depth": 15,
+        "max_features": 0.8,
+        "min_samples_leaf": 64,
+        "n_estimators": 370
+      },
+      "XGBoost": {
+        "colsample_bytree": 0.7246844304357644,
+        "learning_rate": 0.04749239763680407,
+        "max_depth": 4,
+        "min_child_weight": 4,
+        "n_estimators": 409,
+        "reg_lambda": 0.1155118620973099,
+        "subsample": 0.9369139098379994
+      }
+    },
+    "umbral_f1": 0.7400237615906676,
+    "umbral_recall60": 0.6355943081417892
+  }
 }

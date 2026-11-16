@@ -42,7 +42,7 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 | KPI | Meta | Resultado | Estado |
 | :--- | :--- | :--- | :--- |
 | MAE vs baseline (mediana del género) | ≥ 20% de mejora | −6,1% (13,64 vs 12,85) | No cumplido |
-| Hit Recall (detección de hits) | ≥ 60% | 65,2% (precisión 9,8%) | Cumplido, a costa de precisión |
+| Hit Recall (detección de hits) | ≥ 60% | 63,6% en test (precisión 18,4%, marca 14,4% del catálogo; EP3 Voting) | Cumplido |
 | Equidad del error entre géneros | ≤ 10 puntos | 32,0 puntos | No cumplido |
 | Estabilidad de K-Means (ARI) | ≥ 0,90 | ≥ 0,99 | Cumplido |
 
@@ -416,7 +416,7 @@ Se calcula con dos métodos sobre el Random Forest: reducción de impureza (MDI)
 * **Después del género los métodos no coinciden:** MDI pone `instrumentalness`, `loudness` y `energy` (~0,05 a 0,07 cada una); la permutación pone `energy` (~0,022), `duration_ms` (~0,017) e `instrumentalness` (~0,016). Cada atributo de audio aporta muy poco (caídas menores a 0,025), consistente con las correlaciones |r| ≤ 0,10 del EDA.
 * **MDI infla variables continuas:** `tempo` aparece en el medio del ranking MDI (~0,03), pero su permutación es negativa (barajarlo mejora levemente el PR-AUC), es decir, el modelo usa `tempo` para ajustar ruido. `key`, `mode` y `time_signature` no aportan.
 
-**Decisiones de negocio:** 1) géneros a priorizar para difusión: [COMPLETAR con los 5 a 10 géneros de mayor tasa de hits del train]; 2) perfil sonoro (K-Means) que acompaña a más hits: «Bailable y alegre» (4,6% de hits frente a 2,9% global, sección 8); 3) datos que faltan para mejorar el modelo: popularidad o seguidores del artista y fecha de lanzamiento.
+**Decisiones de negocio:** 1) géneros a priorizar para difusión: pop (29,5%), dance (26,1%), electro (21,9%), house (20,6%), k-pop (19,3%), metal (18,5%), rock (18,5%), indie (17,3%), latino (17,0%), edm (16,9%); 2) perfil sonoro (K-Means) que acompaña a más hits: «Bailable y alegre» (4,6% de hits frente a 2,9% global, sección 8); 3) datos que faltan para mejorar el modelo: popularidad o seguidores del artista y fecha de lanzamiento.
 
 ### 9.7 Validación cruzada y capacidad de generalización (Paso 4)
 
@@ -565,7 +565,7 @@ Cada finalista se reentrena con todo el train y se evalúa **una vez** en el tes
 
 | Indicador | Ponderación | Dónde se demuestra |
 | :--- | :-: | :--- |
-| IE5: Aplicación de la metodología | 20% | Sección 11 (CRISP-DM) y estructura del notebook por fases. |
+| IE5: Aplicación de la metodología | 20% | Sección 12 (CRISP-DM) y estructura del notebook por fases. |
 | IE6: Modelos de aprendizaje supervisado | 30% | Secciones 6.1, 6.2 y 7.1 a 7.4 (baselines, dos modelos, clasificador, justificación y sobreajuste). |
 | IE7: Modelo de aprendizaje no supervisado | 30% | Sección 8 (K-Means, elección de k, perfiles, PCA y uso en el negocio). |
 | IE8: Interpretación del desempeño | 20% | Secciones 7 y 9 (KPIs, métricas y recomendaciones para el negocio). |
