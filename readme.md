@@ -26,16 +26,16 @@ Se prepara y analiza el *Spotify Tracks Dataset* (114.000 canciones) para predec
 **Hallazgos principales del modelado (EP2)**
 
 1. Contra el baseline justo (mediana de popularidad del género), el Random Forest **no mejora el MAE** (13,64 vs 12,85). El género domina y el audio aporta poco.
-2. El resultado más útil es el **clasificador de hits** (ROC-AUC 0,78): detecta 34% de los hits con 14,5% de precisión, o 65% con 9,8% de precisión si se exige la meta de recall.
+2. El resultado más útil es el **clasificador de hits** (ROC-AUC 0,78): detecta 35% de los hits con 14,4% de precisión, o 65% con 9,8% de precisión si se exige la meta de recall.
 3. Entrenar sin los `popularity = 0` **empeora** el error real (MAE 14,54 vs 13,64) y no corrige la equidad entre géneros; sin ceros en la prueba, el modelo solo iguala a su baseline.
 4. K-Means con k = 5 entrega **perfiles sonoros interpretables** (bailable y alegre, energético e intenso, acústico moderado, en vivo / hablado, acústico e instrumental), con 4,6% de hits en el primero y 0,3% en el último. La silueta es baja (≈ 0,16): los grupos se solapan.
 
 **Hallazgos principales del modelado (EP3)**
 
-1. **Optimización (IE9):** `RandomizedSearchCV` con validación cruzada agrupada subió el PR-AUC de 0,191 a 0,208 en Random Forest y de 0,199 a 0,206 en XGBoost. La mejora es modesta (cercana a una desviación entre pliegues en Random Forest y menor en XGBoost), pero redujo mucho el sobreajuste: la brecha train–CV bajó de 0,257 a 0,062 en Random Forest y de 0,330 a 0,175 en XGBoost.
-2. **Ensambles (IE10):** el mejor ensamble (Voting, PR-AUC CV 0,211) supera al árbol individual (0,171) por 0,040 puntos, más de dos desviaciones. Voting y Stacking empatan técnicamente con el mejor modelo individual (Random Forest optimizado, 0,208) y con la regresión logística (0,201).
-3. **Generalización (IE11):** PR-AUC en CV 0,211 ± 0,019, brecha train–CV 0,081 y PR-AUC en test 0,221 (diferencia de +0,010 a favor del test).
-4. **Solución elegida (IE12):** Voting (Random Forest + XGBoost + regresión logística). Con el umbral de recall ≥ 60% detecta 62,5% de los hits marcando 14,2% del catálogo (precisión 18,3%, lift 4,4×). En la EP2 el mismo nivel de recall exigía marcar 27,8% del catálogo con 9,8% de precisión.
+1. **Optimización (IE9):** `RandomizedSearchCV` con validación cruzada agrupada subió el PR-AUC de 0,187 a 0,207 en Random Forest y de 0,198 a 0,206 en XGBoost. La mejora es modesta (cercana a una desviación entre pliegues en Random Forest y menor en XGBoost) y redujo el sobreajuste: la brecha train–CV bajó de 0,254 a 0,223 en Random Forest y de 0,329 a 0,220 en XGBoost.
+2. **Ensambles (IE10):** el mejor ensamble (Voting, PR-AUC CV 0,212) supera al árbol individual (0,171) por 0,040 puntos, dos desviaciones. Voting y Stacking empatan técnicamente con el mejor modelo individual (Random Forest optimizado, 0,207) y con la regresión logística (0,203).
+3. **Generalización (IE11):** PR-AUC en CV 0,212 ± 0,020, brecha train–CV 0,150 y PR-AUC en test 0,225 (diferencia de +0,013 a favor del test).
+4. **Solución elegida (IE12):** Voting (Random Forest + XGBoost + regresión logística). Con el umbral de recall ≥ 60% detecta 63,6% de los hits marcando 14,4% del catálogo (precisión 18,4%, lift 4,4×). En la EP2 el mismo nivel de recall exigía marcar 27,7% del catálogo con 9,8% de precisión.
 
 ### Resultado en una mirada
 
@@ -97,7 +97,7 @@ Construir y validar un modelo de Machine Learning capaz de predecir la popularid
 | KPI | Tipo | Unidad de Medida | Descripción | Meta | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | Error Global de Predicción (MAE) | Técnico | Puntos de popularidad (0-100) | Desviación promedio de las predicciones respecto al valor real de `popularity`. | Mejorar el MAE en ≥ 20% respecto de predecir la popularidad promedio del género (modelo base ingenuo). | **No cumplido:** MAE del Random Forest 13,64 vs 12,85 del baseline (−6,1%). Ver sección 7. |
-| Tasa de Detección de Hits (Hit Recall) | Negocio / Técnico | Porcentaje (%) | Porcentaje de canciones con popularidad alta (`popularity > 70`) correctamente identificadas para campañas de difusión. Solo el 4,3% del dataset son hits, por lo que es una clase escasa. | ≥ 60% de los hits reales identificados. | **Cumplido solo a costa de precisión:** 65,2% de recall con umbral calibrado en entrenamiento (precisión 9,8%, marca 27,8% del catálogo). Con el umbral de F1: 34,1%. Ver sección 7. |
+| Tasa de Detección de Hits (Hit Recall) | Negocio / Técnico | Porcentaje (%) | Porcentaje de canciones con popularidad alta (`popularity > 70`) correctamente identificadas para campañas de difusión. Solo el 4,3% del dataset son hits, por lo que es una clase escasa. | ≥ 60% de los hits reales identificados. | **Cumplido solo a costa de precisión:** 65,0% de recall con umbral calibrado en entrenamiento (precisión 9,8%, marca 27,7% del catálogo). Con el umbral de F1: 35,3%. Ver sección 7. |
 | Equidad del error entre géneros | Técnico | Diferencia de MAE (puntos) | Diferencia entre el MAE del género mejor predicho y el peor predicho, para evitar que el modelo favorezca sistemáticamente a ciertos géneros. | Diferencia ≤ 10 puntos entre el mejor y el peor género. | **No cumplido:** 32,0 puntos (`iranian` 2,4 vs `electro` 34,4). Ver sección 7. |
 | Correlación Atributos vs. Popularidad | Exploratorio | Coeficiente de correlación (r) | Grado de asociación entre atributos clave de audio (`danceability`, `energy`, `valence`, `tempo`) y `popularity`, para orientar la selección de canciones para playlists y campañas de difusión. | — (indicador diagnóstico, no tiene meta de mejora). | Medido en el EDA: \|r\| ≤ 0,10. |
 | Estabilidad de la segmentación (ARI) | Técnico (no supervisado) | Adjusted Rand Index entre semillas | Coincidencia de los grupos de K-Means al cambiar la semilla de inicialización. | ARI ≥ 0,90. | **Cumplido:** ARI ≥ 0,99 con tres semillas distintas. Ver sección 8. |
@@ -237,7 +237,7 @@ El MAE se minimiza con la mediana, así que la comparación justa para el KPI de
 * **Random Forest** (300 árboles, `max_depth=15`, `min_samples_leaf=5`): captura interacciones género × audio que la regresión lineal no ve. Se eligió por el EDA: relaciones débiles variable a variable (|r| ≤ 0,10) pero con género explicando ~25% de la varianza. Los hiperparámetros se fijaron a mano (no se hizo una búsqueda sistemática).
 * **Primer intento, con 127 predictoras (113 dummies de género):** empeora al baseline (Regresión Lineal 14,05 y Random Forest 16,71 de MAE).
 * **Corrección: target encoding del género.** Las 113 dummies se reemplazan por una sola variable (promedio de popularidad del género calculado solo con train), quedando **15 predictoras**. El Random Forest pasa de 16,71 a 13,64 de MAE. **Ojo:** el primer Random Forest usaba 100 árboles con `max_features="sqrt"` y el final usa 300 árboles con todas las variables, así que esa mejora no se debe solo al encoding; no se reentrenó el primer modelo con la configuración final.
-* **Limitación del target encoding:** se calcula con todo el train y sin validación cruzada, así que cada canción aporta a su propio promedio de género. Con ~900 canciones por género el aporte es mínimo. Se comprobó con una versión *out-of-fold* (`GroupKFold`): MAE 13,78 vs 13,62, es decir, el encoding usado es levemente optimista, sin cambiar la conclusión.
+* **Limitación del target encoding:** se calcula con todo el train y sin validación cruzada, así que cada canción aporta a su propio promedio de género. Con ~900 canciones por género el aporte es mínimo. Se comprobó con una versión *out-of-fold* (`GroupKFold`): MAE 13,80 vs 13,62, es decir, el encoding usado es levemente optimista, sin cambiar la conclusión.
 
 | Modelo (15 predictoras) | RMSE | MAE | Mejora MAE vs baseline mediana |
 | :--- | :-: | :-: | :-: |
@@ -256,8 +256,8 @@ El MAE se minimiza con la mediana, así que la comparación justa para el KPI de
 | KPI | Meta | Resultado | Cumple |
 | :--- | :--- | :--- | :-: |
 | MAE vs baseline (mediana del género) | ≥ 20% de mejora | **−6,1%** (RF 13,64 vs 12,85) | No |
-| Hit Recall, umbral que maximiza F1 | ≥ 60% | 34,1% (precisión 14,5%) | No |
-| Hit Recall, umbral calibrado en train para 60% | ≥ 60% | 65,2% (precisión 9,8%, marca 27,8% del catálogo) | Sí, a costa de precisión |
+| Hit Recall, umbral que maximiza F1 | ≥ 60% | 35,3% (precisión 14,4%) | No |
+| Hit Recall, umbral calibrado en train para 60% | ≥ 60% | 65,0% (precisión 9,8%, marca 27,7% del catálogo) | Sí, a costa de precisión |
 | Diferencia de MAE entre géneros | ≤ 10 puntos | 32,0 puntos | No |
 
 ### 7.1 MAE
@@ -270,8 +270,8 @@ Clasificador Random Forest (`class_weight="balanced_subsample"`) con las mismas 
 
 | Umbral | Recall hits | Precisión | % del catálogo marcado | Lift vs azar |
 | :--- | :-: | :-: | :-: | :-: |
-| F1 (0,607) | 34,1% | 14,5% | 9,8% | 3,5× |
-| Recall 60% en train (0,489) | 65,2% | 9,8% | 27,8% | 2,3× |
+| F1 (0,602) | 35,3% | 14,4% | 10,2% | 3,5× |
+| Recall 60% en train (0,490) | 65,0% | 9,8% | 27,7% | 2,3× |
 
 ROC-AUC 0,779 y PR-AUC 0,147 (tasa base 4,2%). Usar el regresor como detector (predicción > 70) encuentra solo el 0,5% de los hits.
 
@@ -353,11 +353,11 @@ Como solo ~4,3% de las canciones son hits, la métrica principal es el **PR-AUC*
 
 | KPI de la EP3 | Meta (propuesta del grupo) | Resultado | Estado |
 | :--- | :--- | :--- | :--- |
-| PR-AUC del modelo final en test | ≥ 0,147 (igualar o superar al Random Forest de la EP2) | 0,221 (Voting), unas 5,3 veces la tasa base | Cumplido |
-| Hit Recall con umbral calibrado en train | ≥ 60% (igual que la EP2) | 62,5% en test (precisión 18,3%; marca 14,2% del catálogo) | Cumplido |
-| Aporte de la optimización de hiperparámetros | Mejora de PR-AUC en CV mayor que la desviación entre pliegues | Random Forest +0,017 (desviación 0,019); XGBoost +0,007 (desviación 0,022) | Parcial: no supera la desviación, aunque reduce el sobreajuste |
-| Aporte del ensamble | El mejor ensamble supera al árbol individual por más de una desviación | Voting +0,040 sobre el árbol (desviación 0,019) | Cumplido frente al árbol; sin ventaja significativa frente al mejor modelo individual |
-| Generalización | Brecha train–CV del modelo elegido menor que la del Random Forest inicial | 0,081 vs 0,257 | Cumplido |
+| PR-AUC del modelo final en test | ≥ 0,147 (igualar o superar al Random Forest de la EP2) | 0,225 (Voting), unas 5,4 veces la tasa base | Cumplido |
+| Hit Recall con umbral calibrado en train | ≥ 60% (igual que la EP2) | 63,6% en test (precisión 18,4%; marca 14,4% del catálogo) | Cumplido |
+| Aporte de la optimización de hiperparámetros | Mejora de PR-AUC en CV mayor que la desviación entre pliegues | Random Forest +0,020 (desviación 0,022); XGBoost +0,008 (desviación 0,024) | Parcial: no supera la desviación, aunque reduce el sobreajuste |
+| Aporte del ensamble | El mejor ensamble supera al árbol individual por más de una desviación | Voting +0,040 sobre el árbol (desviación 0,020) | Cumplido frente al árbol; sin ventaja significativa frente al mejor modelo individual |
+| Generalización | Brecha train–CV del modelo elegido menor que la del Random Forest inicial | 0,150 vs 0,254 | Cumplido |
 
 ### 9.2 Estado del arte y comparación con otros trabajos
 
@@ -370,13 +370,13 @@ Antes de elegir los modelos se revisó qué se ha hecho con datos parecidos. **L
 | Cabansag y Ntegeka (2025), *Prediction of Spotify Chart Success Using Audio and Streaming Features* ([arXiv:2508.11632](https://arxiv.org/abs/2508.11632)) | 14.639 canciones del Top 200 diario de EE. UU. 2024, con atributos de audio y datos tempranos de interacción. | Pipeline de clasificación del éxito en ranking. | Incorpora datos de interacción además del audio, en línea con nuestra recomendación de sumar datos del artista y de exposición. |
 | Trabajos de curso con el mismo dataset de Kaggle (`maharshipandya`): informe del Erdős Institute y un proyecto publicado en RPubs | Mismo *Spotify Tracks Dataset*; clasificación de canciones populares / hits (popularidad ≥ 70 en el proyecto de RPubs). | Modelos de clasificación (en el RPubs, tres clasificadores bajo fuerte desbalance). | Plantean la misma pregunta, incluido el límite de predecir solo con audio. Son trabajos de curso, no revisados por pares: citarlos como referencia y no como evidencia concluyente. |
 
-**Conclusión de la revisión:** los ensambles de árboles (Random Forest y XGBoost) son la elección habitual para este tipo de problema, por lo que se comparan aquí como bagging y boosting. Varios trabajos incorporan información que no es de audio (interacción, artista, ranking) para mejorar el resultado, lo que coincide con nuestra conclusión de que el audio y el género explican poco. Nuestro ROC-AUC de la EP2 (0,78) y el del modelo final (0,877 en test) deben leerse con esa cautela. *[Antes de la defensa, abrir cada fuente y confirmar que la descripción coincide con lo que dicen; ajustar si algo difiere.]*
+**Conclusión de la revisión:** los ensambles de árboles (Random Forest y XGBoost) son la elección habitual para este tipo de problema, por lo que se comparan aquí como bagging y boosting. Varios trabajos incorporan información que no es de audio (interacción, artista, ranking) para mejorar el resultado, lo que coincide con nuestra conclusión de que el audio y el género explican poco. Nuestro ROC-AUC de la EP2 (0,78) y el del modelo final (0,878 en test) deben leerse con esa cautela. *[Antes de la defensa, abrir cada fuente y confirmar que la descripción coincide con lo que dicen; ajustar si algo difiere.]*
 
 ### 9.3 Diseño experimental
 
 * **Validación agrupada:** `GroupKFold` de 5 pliegues, agrupando por artista + nombre de la canción (la misma regla anti-fuga de la EP2). **Los mismos pliegues se usan para todos los modelos**, para que la comparación sea justa.
 * **Género sin fuga:** el género entra como etiqueta y se codifica con `TargetEncoder` **dentro de cada pliegue** (dentro de un `Pipeline`), no con un promedio calculado sobre todo el train.
-* **Datos:** 90.011 canciones en train y 22.408 en test, con 14 variables numéricas (9 de audio y 5 discretas o de metadatos) más el género (15 predictoras). Hits: 4,33% en train y 4,2% en test.
+* **Datos:** 89.993 canciones en train y 22.426 en test, con 14 variables numéricas (9 de audio y 5 discretas o de metadatos) más el género (15 predictoras). Hits: 4,33% en train y 4,2% en test.
 * **Uso del test:** no se usa para elegir hiperparámetros ni modelo. Se consulta solo en la importancia por permutación (Paso 3, explicativa) y en la comparación final del Paso 7.
 * **Umbrales:** se calibran solo con probabilidades *out-of-fold* del entrenamiento, igual que en la EP2.
 
@@ -385,12 +385,12 @@ Antes de elegir los modelos se revisó qué se ha hecho con datos parecidos. **L
 | Modelo | PR-AUC | ROC-AUC | Recall (hit) | Precisión (hit) | % marcado como hit |
 | :--- | :-: | :-: | :-: | :-: | :-: |
 | Azar (tasa base) | 0,043 | 0,50 | — | — | — |
-| Árbol de decisión (`max_depth=6`, `min_samples_leaf=50`) | 0,177 | 0,849 | 85,9% | 11,4% | 32,7% |
-| Random Forest (150 árboles) | 0,186 | 0,861 | 76,3% | 13,9% | 23,7% |
+| Árbol de decisión (`max_depth=6`, `min_samples_leaf=50`) | 0,180 | 0,849 | 87,1% | 11,4% | 33,2% |
+| Random Forest (150 árboles) | 0,182 | 0,860 | 76,2% | 14,0% | 23,6% |
 
 *(Predicciones out-of-fold de 5 pliegues agrupados, umbral 0,5; PR-AUC calculado sobre todas las predicciones juntas, por lo que difiere levemente del promedio por pliegue de la sección 9.7.)*
 
-**Interpretación:** un árbol individual tiene alta varianza: cambia mucho si cambian los datos. El Random Forest entrena muchos árboles con muestras *bootstrap* y subconjuntos de variables y promedia sus votos, por lo que los errores individuales se cancelan. El Random Forest supera al árbol en PR-AUC (+0,009 en esta tabla y +0,020 en el promedio por pliegue de la sección 9.7, donde gana en los 5 pliegues) y, con el mismo umbral, marca menos canciones (23,7% frente a 32,7%) con mayor precisión. Con `class_weight="balanced"` ambos modelos marcan muchas canciones como hit, así que el recall es alto y la precisión baja.
+**Interpretación:** un árbol individual tiene alta varianza: cambia mucho si cambian los datos. El Random Forest entrena muchos árboles con muestras *bootstrap* y subconjuntos de variables y promedia sus votos, por lo que los errores individuales se cancelan. El Random Forest supera al árbol en PR-AUC (+0,002 en esta tabla y +0,016 en el promedio por pliegue de la sección 9.7, donde gana en 4 de los 5 pliegues) y, con el mismo umbral, marca menos canciones (23,6% frente a 33,2%) con mayor precisión. Con `class_weight="balanced"` ambos modelos marcan muchas canciones como hit, así que el recall es alto y la precisión baja.
 
 ![Matrices de confusión](images/ep3_paso1_matrices_confusion.png)
 
@@ -398,10 +398,10 @@ Antes de elegir los modelos se revisó qué se ha hecho con datos parecidos. **L
 
 | Modelo | PR-AUC | Recall (hit) | Precisión (hit) | % marcado como hit |
 | :--- | :-: | :-: | :-: | :-: |
-| XGBoost estándar | 0,196 | 1,1% | 23,4% | 0,2% |
-| XGBoost ponderado (`scale_pos_weight` ≈ 22 = no-hits / hits) | 0,192 | 74,1% | 14,2% | 22,6% |
+| XGBoost estándar | 0,200 | 1,0% | 40,4% | 0,1% |
+| XGBoost ponderado (`scale_pos_weight` ≈ 22 = no-hits / hits) | 0,193 | 73,0% | 14,0% | 22,6% |
 
-**Interpretación:** el boosting entrena árboles en secuencia, cada uno corrigiendo los errores del anterior, y reduce principalmente el **sesgo** (el bagging reduce la **varianza**). Con solo ~4,3% de hits, el XGBoost estándar casi nunca marca un hit a umbral 0,5 (recall 1,1%, marca solo 0,2% de las canciones). Pero su PR-AUC es igual de bueno (0,196 vs 0,192): **el ponderado no «aprende mejor», solo mueve el umbral de decisión**. Por eso en el Paso 7 el umbral se elige explícitamente según el negocio. Se usa el ponderado como referencia porque entrega un recall alto sin ajustar el umbral.
+**Interpretación:** el boosting entrena árboles en secuencia, cada uno corrigiendo los errores del anterior, y reduce principalmente el **sesgo** (el bagging reduce la **varianza**). Con solo ~4,3% de hits, el XGBoost estándar casi nunca marca un hit a umbral 0,5 (recall 1,0%, marca solo 0,1% de las canciones). Pero su PR-AUC es igual de bueno (0,200 vs 0,193): **el ponderado no «aprende mejor», solo mueve el umbral de decisión**. Por eso en el Paso 7 el umbral se elige explícitamente según el negocio. Se usa el ponderado como referencia porque entrega un recall alto sin ajustar el umbral.
 
 ![XGBoost ponderado](images/ep3_paso2_xgboost_ponderado.png)
 
@@ -412,8 +412,8 @@ Se calcula con dos métodos sobre el Random Forest: reducción de impureza (MDI)
 ![Importancia MDI](images/ep3_paso3_importancia_mdi.png)
 ![Importancia por permutación](images/ep3_paso3_importancia_permutacion.png)
 
-* **El género domina con ambos métodos:** ~0,57 de la importancia MDI y una caída de ~0,137 en PR-AUC al barajarlo, unas seis veces más que cualquier otra variable.
-* **Después del género los métodos no coinciden:** MDI pone `instrumentalness`, `loudness` y `energy` (~0,05 a 0,07 cada una); la permutación pone `energy` (~0,022), `duration_ms` (~0,017) e `instrumentalness` (~0,016). Cada atributo de audio aporta muy poco (caídas menores a 0,025), consistente con las correlaciones |r| ≤ 0,10 del EDA.
+* **El género domina con ambos métodos:** ~0,58 de la importancia MDI y una caída de ~0,143 en PR-AUC al barajarlo, unas siete veces más que cualquier otra variable.
+* **Después del género los métodos no coinciden:** MDI pone `instrumentalness`, `energy` y `loudness`/`acousticness` (~0,045 a 0,065 cada una); la permutación pone `energy` (~0,021), `instrumentalness` (~0,018) y `loudness` (~0,014). Cada atributo de audio aporta muy poco (caídas menores a 0,025), consistente con las correlaciones |r| ≤ 0,10 del EDA.
 * **MDI infla variables continuas:** `tempo` aparece en el medio del ranking MDI (~0,03), pero su permutación es negativa (barajarlo mejora levemente el PR-AUC), es decir, el modelo usa `tempo` para ajustar ruido. `key`, `mode` y `time_signature` no aportan.
 
 **Decisiones de negocio:** 1) géneros a priorizar para difusión: pop (29,5%), dance (26,1%), electro (21,9%), house (20,6%), k-pop (19,3%), metal (18,5%), rock (18,5%), indie (17,3%), latino (17,0%), edm (16,9%); 2) perfil sonoro (K-Means) que acompaña a más hits: «Bailable y alegre» (4,6% de hits frente a 2,9% global, sección 8); 3) datos que faltan para mejorar el modelo: popularidad o seguidores del artista y fecha de lanzamiento.
@@ -422,17 +422,17 @@ Se calcula con dos métodos sobre el Random Forest: reducción de impureza (MDI)
 
 | Modelo | PR-AUC CV (media ± desv.) | ROC-AUC CV | PR-AUC train | Brecha train–CV | Segundos |
 | :--- | :-: | :-: | :-: | :-: | :-: |
-| Árbol de decisión | 0,171 ± 0,011 | 0,849 | 0,185 | 0,015 | 5 |
-| Random Forest (configuración inicial) | 0,191 ± 0,019 | 0,861 | 0,448 | 0,257 | 44 |
-| XGBoost ponderado (configuración inicial) | 0,199 ± 0,022 | 0,860 | 0,529 | 0,330 | 15 |
+| Árbol de decisión | 0,171 ± 0,007 | 0,849 | 0,186 | 0,015 | 2 |
+| Random Forest (configuración inicial) | 0,187 ± 0,022 | 0,860 | 0,441 | 0,254 | 54 |
+| XGBoost ponderado (configuración inicial) | 0,198 ± 0,024 | 0,859 | 0,527 | 0,329 | 11 |
 
-PR-AUC por pliegue: árbol [0,177 0,158 0,186 0,157 0,175]; Random Forest [0,195 0,161 0,219 0,183 0,195]; XGBoost [0,202 0,163 0,231 0,189 0,209].
+PR-AUC por pliegue: árbol [0,176 0,172 0,180 0,161 0,169]; Random Forest [0,163 0,188 0,219 0,163 0,201]; XGBoost [0,184 0,191 0,238 0,168 0,210].
 
 ![Train vs validación cruzada](images/ep3_paso4_train_vs_cv.png)
 
-**Estabilidad:** la desviación entre pliegues (0,011 a 0,022) equivale a entre 6% y 11% de la media, más que el 5% usado como referencia. Pero los tres modelos suben y bajan juntos (el pliegue 2 es el más difícil y el 3 el más fácil para todos), por lo que la variación viene de la dificultad de cada pliegue y no del modelo. Por eso las diferencias entre modelos son consistentes: el Random Forest supera al árbol en los 5 pliegues y XGBoost supera o iguala al Random Forest en los 5. **Sobreajuste:** el árbol casi no sobreajusta (brecha 0,015) pero rinde menos; Random Forest y XGBoost sobreajustan mucho en su configuración inicial (train 0,45 y 0,53 contra ~0,19 y ~0,20 en CV). La optimización de la sección 9.8 ataca precisamente este problema.
+**Estabilidad:** la desviación entre pliegues (0,007 a 0,024) equivale a entre 4% y 12% de la media; en Random Forest y XGBoost supera el 5% usado como referencia. Pero los tres modelos suben y bajan juntos (el pliegue 4 es el más difícil y el 3 el más fácil para todos), por lo que la variación viene sobre todo de la dificultad de cada pliegue y no del modelo. Las diferencias entre modelos son bastante consistentes: el Random Forest supera al árbol en 4 de los 5 pliegues y XGBoost supera al Random Forest en los 5. **Sobreajuste:** el árbol casi no sobreajusta (brecha 0,015) pero rinde menos; Random Forest y XGBoost sobreajustan mucho en su configuración inicial (train 0,44 y 0,53 contra ~0,19 y ~0,20 en CV). La optimización de la sección 9.8 ataca precisamente este problema.
 
-**Regresión de apoyo (popularidad 0–100).** Con la misma validación agrupada, el MAE del Random Forest es 13,89 ± 0,07 frente a 13,10 ± 0,08 del baseline de mediana por género: **−6,0%** (la meta del KPI era ≥ 20%), con un MAE de entrenamiento de 10,74 (brecha 3,15 puntos). Se confirma el −6,1% de la EP2: el audio no mejora la predicción de la popularidad y el valor del proyecto está en el clasificador de hits.
+**Regresión de apoyo (popularidad 0–100).** Con la misma validación agrupada, el MAE del Random Forest es 13,86 ± 0,11 frente a 13,08 ± 0,17 del baseline de mediana por género: **−5,9%** (la meta del KPI era ≥ 20%), con un MAE de entrenamiento de 10,75 (brecha 3,11 puntos). Se confirma el −6,1% de la EP2: el audio no mejora la predicción de la popularidad y el valor del proyecto está en el clasificador de hits.
 
 ### 9.8 Optimización de hiperparámetros (Paso 5)
 
@@ -453,14 +453,14 @@ Se usa `RandomizedSearchCV` (15 configuraciones × 5 pliegues agrupados = 75 aju
 
 | Modelo | PR-AUC CV antes | PR-AUC CV optimizado | Mejora | Brecha train–CV (antes → después) | Mejores parámetros |
 | :--- | :-: | :-: | :-: | :-: | :--- |
-| Random Forest | 0,1906 | 0,2079 | +0,0173 | 0,257 → 0,062 | `max_depth=7`, `max_features=0.8`, `min_samples_leaf=64`, `n_estimators=363` |
-| XGBoost | 0,1989 | 0,2057 | +0,0068 | 0,330 → 0,175 | `learning_rate=0.0317`, `max_depth=4`, `min_child_weight=2`, `n_estimators=439`, `reg_lambda=0.3034`, `subsample=0.8733`, `colsample_bytree=0.8253` |
+| Random Forest | 0,1867 | 0,2067 | +0,0199 | 0,254 → 0,223 | `max_depth=15`, `max_features=0.8`, `min_samples_leaf=64`, `n_estimators=370` |
+| XGBoost | 0,1982 | 0,2060 | +0,0079 | 0,329 → 0,220 | `learning_rate=0.0475`, `max_depth=4`, `min_child_weight=4`, `n_estimators=409`, `reg_lambda=0.1155`, `subsample=0.9369`, `colsample_bytree=0.7247` |
 
 ![Búsqueda de hiperparámetros](images/ep3_paso5_busqueda_hiperparametros.png)
 
-**Justificación de las decisiones:** los mejores modelos son más simples y regularizados que los iniciales. En Random Forest el óptimo usa árboles mucho menos profundos (7 en vez de 12) y hojas más grandes (64 en vez de 20); la asociación de Spearman entre hiperparámetro y PR-AUC es −0,53 para `max_depth` y +0,51 para `min_samples_leaf`. En XGBoost el óptimo usa una tasa de aprendizaje baja (0,03; Spearman −0,50), árboles poco profundos (4; −0,47) y más regularización. Es coherente con la sección 9.7: como la señal es débil, el principal riesgo es memorizar ruido, y limitar la complejidad reduce la brecha train–CV (de 0,257 a 0,062 en Random Forest). Según el gráfico, la configuración inicial queda en la parte baja del ranking en Random Forest (unas 12 de 15 configuraciones la superan) y en la parte media en XGBoost (unas 8 de 15).
+**Justificación de las decisiones:** los mejores modelos están más regularizados que los iniciales. En Random Forest el óptimo usa hojas mucho más grandes (64 en vez de 20), aunque árboles algo más profundos (15 en vez de 12); la asociación de Spearman entre hiperparámetro y PR-AUC es +0,69 para `min_samples_leaf` y solo −0,09 para `max_depth`, es decir, el tamaño mínimo de hoja es lo que más influye. En XGBoost el óptimo usa una tasa de aprendizaje baja (0,05; Spearman −0,48) y árboles poco profundos (4; −0,34). Es coherente con la sección 9.7: como la señal es débil, el principal riesgo es memorizar ruido, y limitar la complejidad reduce la brecha train–CV (de 0,254 a 0,223 en Random Forest y de 0,329 a 0,220 en XGBoost). Según el gráfico, la configuración inicial queda al fondo del ranking en Random Forest (las 15 configuraciones la superan) y en la parte media en XGBoost (unas 9 de 15).
 
-**Limitaciones:** (1) la mejora de PR-AUC es pequeña: 0,017 en Random Forest (cercana a una desviación entre pliegues) y 0,007 en XGBoost (menor que su desviación), y las barras de error de las mejores configuraciones se solapan, por lo que no se puede distinguir entre ellas; (2) el mejor de 15 configuraciones queda favorecido en la validación cruzada (sesgo de selección), por eso la comparación final se confirma en el test del Paso 7; (3) `n_iter` es limitado y una búsqueda mayor podría mejorar levemente (la búsqueda de Random Forest tardó ~25 minutos y la de XGBoost ~2).
+**Limitaciones:** (1) la mejora de PR-AUC es pequeña: 0,020 en Random Forest (cercana a una desviación entre pliegues) y 0,008 en XGBoost (menor que su desviación), y las barras de error de las mejores configuraciones se solapan, por lo que no se puede distinguir entre ellas; (2) el mejor de 15 configuraciones queda favorecido en la validación cruzada (sesgo de selección), por eso la comparación final se confirma en el test del Paso 7; (3) `n_iter` es limitado y una búsqueda mayor podría mejorar levemente (la búsqueda de Random Forest tardó ~36 minutos y la de XGBoost ~3).
 
 ### 9.9 Ensambles: Voting y Stacking (Paso 6)
 
@@ -468,14 +468,14 @@ Con los modelos optimizados se comparan tres familias: **bagging** (Random Fores
 
 | Modelo | PR-AUC CV (media ± desv.) | ROC-AUC CV | Brecha train–CV | Segundos (validación cruzada) |
 | :--- | :-: | :-: | :-: | :-: |
-| Regresión logística (referencia) | 0,201 ± 0,019 | 0,857 | 0,003 | 1 |
-| Árbol de decisión (referencia) | 0,171 ± 0,011 | 0,849 | 0,015 | 2 |
-| Random Forest optimizado (bagging) | 0,208 ± 0,015 | 0,867 | 0,062 | 204 |
-| XGBoost optimizado (boosting) | 0,206 ± 0,019 | 0,864 | 0,175 | 12 |
-| Voting (RF + XGB + LR) | **0,211 ± 0,019** | 0,868 | 0,081 | 201 |
-| Stacking (RF + XGB + LR) | 0,209 ± 0,017 | 0,868 | 0,097 | 913 |
+| Regresión logística (referencia) | 0,203 ± 0,010 | 0,857 | 0,002 | 2 |
+| Árbol de decisión (referencia) | 0,171 ± 0,007 | 0,849 | 0,015 | 2 |
+| Random Forest optimizado (bagging) | 0,207 ± 0,018 | 0,866 | 0,223 | 386 |
+| XGBoost optimizado (boosting) | 0,206 ± 0,024 | 0,862 | 0,220 | 14 |
+| Voting (RF + XGB + LR) | **0,212 ± 0,020** | 0,868 | 0,150 | 410 |
+| Stacking (RF + XGB + LR) | 0,211 ± 0,021 | 0,868 | 0,202 | 1933 |
 
-**Aporte del ensamble:** el mejor ensamble (Voting) supera al árbol individual por **0,040 puntos de PR-AUC** (más de dos desviaciones), un aporte claro de combinar muchos árboles. Bagging y boosting rinden igual (0,208 vs 0,206), con perfiles distintos: el Random Forest sobreajusta menos (brecha 0,062) y XGBoost entrena unas 17 veces más rápido. **Pero combinar modelos distintos no aporta de forma significativa:** Voting (+0,003) y Stacking (+0,001) quedan dentro de la desviación frente al mejor modelo individual, y Stacking cuesta 913 segundos. Además, la **regresión logística** (0,201, entrenada en 1 segundo) queda también dentro del margen de error de los ensambles, lo que indica que gran parte de la señal es simple (principalmente el género) y que los modelos complejos agregan poco.
+**Aporte del ensamble:** el mejor ensamble (Voting) supera al árbol individual por **0,040 puntos de PR-AUC** (dos desviaciones), un aporte claro de combinar muchos árboles. Bagging y boosting rinden igual (0,207 vs 0,206) y sobreajustan parecido (brecha 0,223 vs 0,220), pero XGBoost entrena unas 28 veces más rápido. **Combinar modelos distintos no aporta de forma significativa:** Voting (+0,005) y Stacking (+0,004) quedan dentro de la desviación frente al mejor modelo individual, aunque Voting sobreajusta menos (brecha 0,150); Stacking cuesta 1.933 segundos. Además, la **regresión logística** (0,203, entrenada en 2 segundos) queda también dentro del margen de error de los ensambles, lo que indica que gran parte de la señal es simple (principalmente el género) y que los modelos complejos agregan poco.
 
 ### 9.10 Generalización final y selección de la solución óptima (Paso 7)
 
@@ -483,38 +483,38 @@ Cada finalista se reentrena con todo el train y se evalúa **una vez** en el tes
 
 | Modelo | PR-AUC CV | ± | Brecha train–CV | PR-AUC test | Dif. CV vs test | ROC-AUC test | Segundos | ¿Distinto del mejor en CV? |
 | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :--- |
-| **Voting (RF + XGB + LR)** | 0,211 | 0,019 | 0,081 | 0,221 | +0,010 | 0,877 | 201 | mejor en CV |
-| Stacking (RF + XGB + LR) | 0,209 | 0,017 | 0,097 | 0,220 | +0,011 | 0,875 | 913 | empate técnico |
-| Random Forest optimizado (bagging) | 0,208 | 0,015 | 0,062 | 0,216 | +0,008 | 0,874 | 204 | empate técnico |
-| XGBoost optimizado (boosting) | 0,206 | 0,019 | 0,175 | 0,221 | +0,015 | 0,874 | 12 | empate técnico |
-| Regresión logística | 0,201 | 0,019 | 0,003 | 0,210 | +0,009 | 0,867 | 1 | empate técnico |
-| Árbol de decisión | 0,171 | 0,011 | 0,015 | 0,176 | +0,005 | 0,860 | 2 | peor |
+| **Voting (RF + XGB + LR)** | 0,212 | 0,020 | 0,150 | 0,225 | +0,013 | 0,878 | 410 | mejor en CV |
+| Stacking (RF + XGB + LR) | 0,211 | 0,021 | 0,202 | 0,225 | +0,014 | 0,878 | 1933 | empate técnico |
+| Random Forest optimizado (bagging) | 0,207 | 0,018 | 0,223 | 0,224 | +0,017 | 0,876 | 386 | empate técnico |
+| XGBoost optimizado (boosting) | 0,206 | 0,024 | 0,220 | 0,216 | +0,010 | 0,872 | 14 | empate técnico |
+| Regresión logística | 0,203 | 0,010 | 0,002 | 0,212 | +0,009 | 0,869 | 2 | empate técnico |
+| Árbol de decisión | 0,171 | 0,007 | 0,015 | 0,174 | +0,003 | 0,862 | 2 | peor |
 
-**Solución elegida: Voting (Random Forest + XGBoost + regresión logística).** Es la mejor en PR-AUC CV (0,211) y empata con Stacking en ROC-AUC CV (0,868); tiene el mejor ROC-AUC en test (0,877) y un PR-AUC en test (0,221) igual al máximo; su brecha train–CV (0,081) es moderada; y promedia tres modelos de naturaleza distinta, lo que lo hace más estable que depender de uno solo. Frente a Stacking, rinde igual con una cuarta parte del tiempo. **Se reconoce que es un empate técnico:** Random Forest, XGBoost y Stacking están dentro de una desviación del Voting, por lo que la elección se apoya en el mejor rendimiento combinado más que en una ventaja significativa. El costo (~200 segundos de validación cruzada) es aceptable porque el modelo se usa en lote para armar una lista corta. Si se priorizara la velocidad, XGBoost optimizado (12 segundos, PR-AUC test 0,221) es la alternativa; si se priorizara la interpretabilidad, la regresión logística (1 segundo, PR-AUC test 0,210).
+**Solución elegida: Voting (Random Forest + XGBoost + regresión logística).** Es la mejor en PR-AUC CV (0,212) y empata con Stacking en ROC-AUC CV (0,868); empata con Stacking en el mejor ROC-AUC en test (0,878) y en el mejor PR-AUC en test (0,225); su brecha train–CV (0,150) es la menor entre los ensambles de árboles; y promedia tres modelos de naturaleza distinta, lo que lo hace más estable que depender de uno solo. Frente a Stacking, rinde igual con una quinta parte del tiempo. **Se reconoce que es un empate técnico:** Random Forest, XGBoost y Stacking están dentro de una desviación del Voting, por lo que la elección se apoya en el mejor rendimiento combinado más que en una ventaja significativa. El costo (~400 segundos de validación cruzada) es aceptable porque el modelo se usa en lote para armar una lista corta. Si se priorizara la velocidad, XGBoost optimizado (14 segundos, PR-AUC test 0,216) es la alternativa; si se priorizara la interpretabilidad, la regresión logística (2 segundos, PR-AUC test 0,212).
 
-**Consistencia con el test:** todos los modelos rinden unos 0,005 a 0,015 *mejor* en el test que en la CV (Voting +0,010). No hay señal de sobreajuste a la CV: el modelo final se entrena con todo el train (la CV usa 80%) y la curva de aprendizaje todavía sube levemente.
+**Consistencia con el test:** todos los modelos rinden unos 0,003 a 0,017 *mejor* en el test que en la CV (Voting +0,013). No hay señal de sobreajuste a la CV: el modelo final se entrena con todo el train (la CV usa 80%) y la curva de aprendizaje todavía sube levemente.
 
 ![Curva de aprendizaje](images/ep3_paso7_curva_aprendizaje.png)
 
-**Curva de aprendizaje (Voting):** el PR-AUC de train baja de 0,445 a 0,291 y el de validación sube de 0,115 a 0,211, con lo que la brecha se reduce de ~0,33 a ~0,08. En el último tramo la validación casi se aplana (0,206 → 0,211 al pasar de 80% a 100% de los datos), por lo que **más canciones aportarían poco; el límite lo pone la información disponible** (faltan datos del artista y de la fecha de lanzamiento), no el modelo ni la cantidad de datos.
+**Curva de aprendizaje (Voting):** el PR-AUC de train baja de ~0,49 a 0,363 y el de validación sube de ~0,11 a 0,212, con lo que la brecha se reduce de ~0,37 a ~0,15. En el último tramo la validación casi se aplana (0,207 → 0,212 al pasar de 80% a 100% de los datos), por lo que **más canciones aportarían poco; el límite lo pone la información disponible** (faltan datos del artista y de la fecha de lanzamiento), no el modelo ni la cantidad de datos.
 
 | Umbral (calibrado solo con train) | Valor | Recall hits | Precisión | % del catálogo marcado | Lift vs azar |
 | :--- | :-: | :-: | :-: | :-: | :-: |
-| Máximo F1 | 0,783 | 46,2% | 22,3% | 8,6% | 5,4× |
-| Recall ≥ 60% | 0,674 | 62,5% | 18,3% | 14,2% | 4,4× |
+| Máximo F1 | 0,740 | 49,1% | 22,1% | 9,3% | 5,3× |
+| Recall ≥ 60% | 0,636 | 63,6% | 18,4% | 14,4% | 4,4× |
 
-**Comparación con la EP2** (mismo test): Random Forest de la EP2, PR-AUC 0,142 y ROC-AUC 0,778 al recalcularlo en el notebook (0,147 y 0,779 en el informe de la EP2); solución EP3, PR-AUC 0,221 y ROC-AUC 0,877. Con un recall parecido (65,2% en la EP2 y 62,5% ahora), la EP2 debía marcar 27,8% del catálogo con 9,8% de precisión (lift 2,3×), y la solución EP3 marca 14,2% con 18,3% de precisión (lift 4,4×): **la mitad de las canciones por revisar y casi el doble de precisión**. Una explicación probable de la mejora, a confirmar con la prueba de ablación del notebook, es que la EP3 codifica el género con la tasa de hits de cada género dentro de un `Pipeline`, mientras que el modelo de la EP2 lo codificaba con el promedio de popularidad; como el género concentra la señal, esa diferencia pesa mucho.
+**Comparación con la EP2** (mismo test): Random Forest de la EP2, PR-AUC 0,147 y ROC-AUC 0,779 (igual que en el informe de la EP2); solución EP3, PR-AUC 0,225 y ROC-AUC 0,878. Con un recall parecido (65,0% en la EP2 y 63,6% ahora), la EP2 debía marcar 27,7% del catálogo con 9,8% de precisión (lift 2,3×), y la solución EP3 marca 14,4% con 18,4% de precisión (lift 4,4×): **la mitad de las canciones por revisar y casi el doble de precisión**. Una explicación probable de la mejora, a confirmar con la prueba de ablación del notebook, es que la EP3 codifica el género con la tasa de hits de cada género dentro de un `Pipeline`, mientras que el modelo de la EP2 lo codificaba con el promedio de popularidad; como el género concentra la señal, esa diferencia pesa mucho.
 
 ![Curvas precisión-recall comparadas](images/ep3_paso7_curva_pr_comparada.png)
 
-**Cómo explicar recall y precisión (pregunta frecuente en la defensa).** Con el umbral de recall ≥ 60% el modelo encuentra 62 o 63 de cada 100 hits reales (recall). Como marca 14,2% del catálogo y los hits son solo ~4,2%, solo ~18 de cada 100 canciones marcadas son hits (precisión), aun así 4,4 veces mejor que elegir al azar. Para el negocio es una lista corta que revisa una persona; si se quiere más precisión, se sube el umbral (con el umbral F1 la precisión sube a 22,3% y el recall baja a 46,2%).
+**Cómo explicar recall y precisión (pregunta frecuente en la defensa).** Con el umbral de recall ≥ 60% el modelo encuentra 63 o 64 de cada 100 hits reales (recall). Como marca 14,4% del catálogo y los hits son solo ~4,2%, solo ~18 de cada 100 canciones marcadas son hits (precisión), aun así 4,4 veces mejor que elegir al azar. Para el negocio es una lista corta que revisa una persona; si se quiere más precisión, se sube el umbral (con el umbral F1 la precisión sube a 22,1% y el recall baja a 49,1%).
 
 ### 9.11 Conclusiones y recomendaciones de la EP3
 
-1. **Optimización (IE9):** PR-AUC CV de 0,191 a 0,208 (Random Forest) y de 0,199 a 0,206 (XGBoost). La mejora es pequeña, pero los hiperparámetros más influyentes (menor profundidad, hojas más grandes, menor tasa de aprendizaje, más regularización) redujeron el sobreajuste de forma importante.
-2. **Ensambles (IE10):** árbol individual 0,171 frente a Voting 0,211 (+0,040). Combinar muchos árboles (bagging y boosting) mejora claramente al árbol; Voting y Stacking solo empatan con el mejor modelo individual.
-3. **Generalización (IE11):** brecha train–CV de 0,081 y diferencia CV vs test de +0,010; la curva de aprendizaje indica que más datos aportarían poco.
-4. **Solución elegida (IE12):** Voting (RF + XGBoost + regresión logística), con PR-AUC 0,221 y ROC-AUC 0,877 en test, por mejor rendimiento combinado, consistencia entre CV y test, y estabilidad.
+1. **Optimización (IE9):** PR-AUC CV de 0,187 a 0,207 (Random Forest) y de 0,198 a 0,206 (XGBoost). La mejora es pequeña; los hiperparámetros más influyentes (hojas más grandes en Random Forest; menor tasa de aprendizaje y menor profundidad en XGBoost) redujeron el sobreajuste (brecha de 0,254 a 0,223 y de 0,329 a 0,220).
+2. **Ensambles (IE10):** árbol individual 0,171 frente a Voting 0,212 (+0,040). Combinar muchos árboles (bagging y boosting) mejora claramente al árbol; Voting y Stacking solo empatan con el mejor modelo individual.
+3. **Generalización (IE11):** brecha train–CV de 0,150 y diferencia CV vs test de +0,013; la curva de aprendizaje indica que más datos aportarían poco.
+4. **Solución elegida (IE12):** Voting (RF + XGBoost + regresión logística), con PR-AUC 0,225 y ROC-AUC 0,878 en test, por mejor rendimiento combinado, consistencia entre CV y test, y estabilidad.
 5. **Recomendaciones de negocio:** usar el modelo como filtro previo que arma una lista corta para revisión humana; fijar el umbral según la capacidad de revisión de la campaña (recall ≥ 60% marcando ~14% del catálogo, o máximo F1 marcando ~9%); incorporar datos del artista y la fecha de lanzamiento, que es donde está el mayor potencial de mejora; reportar siempre el error por género.
 6. **Limitaciones:** el audio aporta poco y el género concentra la señal; faltan datos de artista y fecha de lanzamiento; la unidad de análisis es canción × género; el significado de `popularity = 0` no está aclarado; la búsqueda de hiperparámetros es acotada (15 configuraciones por modelo) y su resultado en CV es algo optimista; varios modelos empatan técnicamente, incluida la regresión logística, por lo que la ventaja del ensamble elegido es pequeña.
 7. **Sesgos y ética:** el modelo reproduce el sesgo de popularidad previo y favorece géneros con más hits históricos; puede perjudicar a artistas emergentes. Usarlo para apoyar y no para decidir automáticamente (sección 11).
@@ -595,7 +595,7 @@ ProyectoSpotifyML/
 
 ### Cómo reproducir
 
-Entorno con el que se ejecutó el notebook: Python 3.12.3, pandas 3.0.2 y scikit-learn 1.8.0 (versiones fijadas en `requirements.txt`).
+Entorno con el que se ejecutó el notebook: Python 3.14.6, pandas 3.0.2, scikit-learn 1.8.0 y xgboost 3.4.1 (versiones fijadas en `requirements.txt`).
 
 1. `pip install -r requirements.txt` (incluye `xgboost`, con su versión fijada)
 2. Abrir `notebooks/Spotify_Notebook.ipynb` y ejecutar **todas las celdas, de arriba abajo, con la carpeta `notebooks/` como directorio de trabajo** (las rutas son relativas: `../data`, `../data_procesado`, `../models`, `../images`). La primera parte (EDA y preparación) genera `data_procesado/spotify_tracks_clean.csv` y `spotify_tracks_anomalias.csv` y los gráficos del EDA; la segunda («Modelado (EP2)») lee ese CSV limpio y genera los gráficos del modelado, `data_procesado/spotify_tracks_clusters.csv` y los modelos en `models/`.
