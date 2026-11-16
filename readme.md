@@ -134,7 +134,7 @@ Todo lo descrito en esta sección se reproduce en la primera parte de `notebooks
 
 ### B. Duplicados por `track_id` (se conservan, con advertencia)
 
-* **40.108 filas (35,3%)** tienen un `track_id` repetido, catalogado en distintos géneros (hay 89.740 `track_id` distintos).
+* **40.108 filas (35,3%)** tienen un `track_id` repetido, catalogado en distintos géneros (hay 89.740 `track_id` distintos en el dataset limpio, antes del filtro de compás de la sección 6; después de ese filtro quedan 88.732).
 * Se **conservan** para el análisis por género.
 * El **95,6%** de las canciones repetidas tiene exactamente la misma `popularity` en todos sus géneros. Por eso, si se particiona al azar, una misma canción puede caer en entrenamiento y prueba (fuga de información). Además, la misma canción puede aparecer con `track_id` distintos (4.698 canciones tienen más de uno: single, álbum, recopilación), con audio casi idéntico. **En el modelado se particiona agrupando por artista + nombre de la canción** (`GroupShuffleSplit`); ver sección 6.
 
